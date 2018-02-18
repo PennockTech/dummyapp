@@ -22,33 +22,116 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 )
 
 const metadataBase = "http://169.254.169.254/latest/meta-data/"
 
 // AWS metadata service is very local, we can hard-timeout much sooner
-const awsHTTPTimeout = 2 * time.Second
+const awsHTTPTimeout = 3 * time.Second
 
-func addSection(ctx context.Context, w io.Writer, path string) error {
+type awsGatherItem struct {
+	path string
+	body []byte
+	err  error
+}
+
+func DoAWSGather(ctx context.Context, sections ...string) map[string]*awsGatherItem {
+	wg := &sync.WaitGroup{}
+	items := make(map[string]*awsGatherItem, len(sections))
+	results := make(chan *awsGatherItem, len(sections))
+
+	for _, section := range sections {
+		wg.Add(1)
+		go awsCollect(ctx, section, wg, results)
+	}
+
+	waited := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(waited)
+	}()
+	resultOrClosed := results
+collect1:
+	for {
+		select {
+		case r, ok := <-resultOrClosed:
+			if ok {
+				items[r.path] = r
+			} else {
+				resultOrClosed = nil
+			}
+		case <-waited:
+			break collect1
+		case <-ctx.Done():
+			break collect1
+		}
+	}
+	go func() {
+		<-waited
+		close(results)
+	}()
+	// We can collect all the results and close the channel before reading them,
+	// while the select above will _randomly_ choose one of the branches, so we
+	// can be left with items in the channel.  (Also, context could expire
+	// badly timed, but that's much less likely).
+	// The items are placed in the channel before the waitgroup is marked done,
+	// so we can select on a read and only get items already in the channel,
+	// relying upon the default (not in the random selection) to stop when the
+	// channel has been empty of whatever's in there (or just squeaked in after
+	// context expiry).
+collect2:
+	for {
+		select {
+		case r, ok := <-results:
+			if !ok {
+				break collect2
+			}
+			items[r.path] = r
+		default:
+			break collect2
+		}
+	}
+
+	return items
+}
+
+func awsCollect(ctx context.Context, path string, wg *sync.WaitGroup, ch chan<- *awsGatherItem) {
+	defer wg.Done()
+	r := &awsGatherItem{
+		path: path,
+	}
 	u := metadataBase + path
+
 	req, err := http.NewRequest(http.MethodGet, u, nil)
 	if err != nil {
-		return err
+		r.err = err
+		ch <- r
+		return
 	}
 	req = req.WithContext(ctx)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return err
+		r.err = err
+		ch <- r
+		return
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		r.err = err
+		ch <- r
+		return
 	}
-	_, err = fmt.Fprintf(w, "\n<h3>%s</h3>\n", template.HTMLEscapeString(path))
+	r.body = body
+	ch <- r
+}
+
+func addSection(w io.Writer, item *awsGatherItem) error {
+	_, err := fmt.Fprintf(w, "\n<h3>%s</h3>\n", template.HTMLEscapeString(item.path))
 	if err == nil {
-		template.HTMLEscape(w, body)
+		template.HTMLEscape(w, item.body)
 		// no error return, oops
 	}
 	return err
@@ -59,9 +142,15 @@ func showError(w io.Writer, path string, err error) {
 		template.HTMLEscapeString(path), template.HTMLEscapeString(err.Error()))
 }
 
-func AddSection(ctx context.Context, w io.Writer, path string) {
-	if err := addSection(ctx, w, path); err != nil {
-		showError(w, path, err)
+func AddSection(w io.Writer, item *awsGatherItem) {
+	if item.err != nil {
+		showError(w, item.path, item.err)
+		return
+	}
+	// this handling is a little overkill, now that the data gathering is done ahead
+	// of time in a go-routine
+	if err := addSection(w, item); err != nil {
+		showError(w, item.path, err)
 	}
 }
 
@@ -80,20 +169,26 @@ func awsHandle(w http.ResponseWriter, req *http.Request) {
 		}
 	} else {
 		io.WriteString(w, "<h2>AWS metadata service (HTTP requests)</h2>\n")
-		for _, section := range []string{
+		sections := []string{
 			"hostname",
 			"placement/availability-zone",
 			"iam/info",
-		} {
-			AddSection(childCtx, w, section)
-			if childCtx.Err() != nil {
-				// any context expiration has _almost_ certainly been shown in the output of the
-				// AddSection error handling; there's a few nanoseconds race, so rather than
-				// risk aborting early without saying so, just explicitly say "hey we're done".
-				showError(w, "timeout", fmt.Errorf("terminated early"))
-				break
+		}
+		items := DoAWSGather(childCtx, sections...)
+		for _, section := range sections {
+			// may have timed out before collecting them all
+			item, ok := items[section]
+			if ok {
+				AddSection(w, item)
 			}
 		}
+		if childCtx.Err() != nil {
+			// any context expiration has _almost_ certainly been shown in the output of the
+			// AddSection error handling; there's a few nanoseconds race, so rather than
+			// risk aborting early without saying so, just explicitly say "hey we're done".
+			showError(w, "timeout", fmt.Errorf("terminated early"))
+		}
+
 	}
 }
 
