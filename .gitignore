@@ -1,0 +1,4 @@
+/dummyapp
+/vendor
+/build/.docker-go-tags
+/tmp

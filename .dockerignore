@@ -1,0 +1,3 @@
+# NB: not sending .git will break build/version
+# Can pre-generate version, but the risk of staleness leaves me unhappy
+/dummy-app

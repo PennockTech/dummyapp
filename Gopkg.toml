@@ -1,0 +1,23 @@
+# Gopkg.toml for dummyapp
+
+# dep still doesn't handle build-tags and expanding out the various
+# combinations, so any dependencies which rely upon tags and which
+# we don't want to be lost, should be included here in 'required'.
+#
+# Note that dep still doesn't handle OS-specific dependencies, so
+# if we run into those before dep gains support, then use
+# `make BUILDER_INSERT_MAKE_TARGETS=setup build-image`
+#
+required = ["github.com/heroku/x/hmetrics"]
+
+[[constraint]]
+  name = "github.com/sirupsen/logrus"
+  version = "1.0.4"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/heroku/x"
+
+[prune]
+  go-tests = true
+  unused-packages = true
