@@ -15,10 +15,22 @@ propagation for build framework).
 
 ## Setup
 
+We create a Heroku app, enable Go language metrics manually (because using
+Docker deploy, not a buildpack), disable git push to the remote (but leave
+the remote in place so that the Heroku CLI can auto-determine the deployed
+app name), and do a build and deploy with the Heroku tag set.
+
+The build-tag affects both the Docker image tag-name and the content which
+is built; for Heroku, it ensures that we compile their metrics push code.
+
 ```
 heroku apps:create pt-dummy-app
 heroku labs:enable go-language-metrics
 heroku labs:enable runtime-heroku-metrics
+
+git config --local --unset remote.heroku.fetch
+git config --local remote.heroku.pushurl no_push_because_we_deploy_docker_images
+git config --local --bool remote.heroku.skipFetchAll true
 
 make BUILD_TAGS=heroku heroku-deploy
 ```
