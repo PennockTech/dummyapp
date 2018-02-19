@@ -213,8 +213,6 @@ workflows:
             branches:
               only:
                 - master
-                # Doing initial CircleCI setup on a branch:
-                - circle
       - push_docker_hub:
           context: heroku-and-dockerhub
           requires:
