@@ -95,12 +95,14 @@ func loggerFromContext(ctx context.Context) logging.Logger {
 	return l.(logging.Logger)
 }
 
-var lastRequestId uint64 // atomic bump; note this is not great for clustered operations
+var lastRequestID uint64 // atomic bump; note this is not great for clustered operations
 
+// LogWrapHandler adds logging to received HTTP requests, logging before and after the
+// handling and providing the logger in the context to requests.
 func LogWrapHandler(h http.Handler, logger logging.Logger, name string) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		requestId := atomic.AddUint64(&lastRequestId, 1)
-		logger = logger.WithField("request", requestId).WithField("page", name)
+		requestID := atomic.AddUint64(&lastRequestID, 1)
+		logger = logger.WithField("request", requestID).WithField("page", name)
 		logger.
 			WithField("method", req.Method).
 			WithField("url", req.URL).
@@ -234,7 +236,7 @@ func setupWebserver(logger logging.Logger) func() error {
 	}
 }
 
-func real_main() int {
+func realMain() int {
 	parseFlagsSanely()
 
 	if options.showVersion {
@@ -298,7 +300,7 @@ func main() {
 	// Avoid busy-loop respawning if there's a fatal error on startup
 	// Won't handle panic not guarded by sleep
 	start := time.Now()
-	rv := real_main()
+	rv := realMain()
 	duration := time.Now().Sub(start)
 	if duration < 3*time.Second {
 		time.Sleep(2 * time.Second)

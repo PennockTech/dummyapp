@@ -37,14 +37,20 @@ type awsGatherItem struct {
 	err  error
 }
 
-func DoAWSGather(ctx context.Context, sections ...string) map[string]*awsGatherItem {
+// doAWSGather spawns go-routines to collect all the given relative paths
+// from the AWS metadata service and waits for either them, or a context
+// expiry.  The results collected before expiration are returned as a map.
+func doAWSGather(ctx context.Context, sections ...string) map[string]*awsGatherItem {
 	wg := &sync.WaitGroup{}
 	items := make(map[string]*awsGatherItem, len(sections))
 	results := make(chan *awsGatherItem, len(sections))
 
 	for _, section := range sections {
 		wg.Add(1)
-		go awsCollect(ctx, section, wg, results)
+		go func(sect string) {
+			defer wg.Done()
+			results <- awsCollect(ctx, sect)
+		}(section)
 	}
 
 	waited := make(chan struct{})
@@ -97,8 +103,10 @@ collect2:
 	return items
 }
 
-func awsCollect(ctx context.Context, path string, wg *sync.WaitGroup, ch chan<- *awsGatherItem) {
-	defer wg.Done()
+func awsCollect(ctx context.Context, path string) *awsGatherItem {
+	// This function is a place where named return values make sense, but using
+	// them is controversial.  I probably upset purists enough by insisting on
+	// using ALL_CAPS for package constants, so go with the flow this time.
 	r := &awsGatherItem{
 		path: path,
 	}
@@ -107,28 +115,25 @@ func awsCollect(ctx context.Context, path string, wg *sync.WaitGroup, ch chan<- 
 	req, err := http.NewRequest(http.MethodGet, u, nil)
 	if err != nil {
 		r.err = err
-		ch <- r
-		return
+		return r
 	}
 	req = req.WithContext(ctx)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		r.err = err
-		ch <- r
-		return
+		return r
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		r.err = err
-		ch <- r
-		return
+		return r
 	}
 	r.body = body
-	ch <- r
+	return r
 }
 
-func addSection(w io.Writer, item *awsGatherItem) error {
+func rawAWSAddSection(w io.Writer, item *awsGatherItem) error {
 	_, err := fmt.Fprintf(w, "\n<h3>%s</h3>\n", template.HTMLEscapeString(item.path))
 	if err == nil {
 		template.HTMLEscape(w, item.body)
@@ -137,36 +142,39 @@ func addSection(w io.Writer, item *awsGatherItem) error {
 	return err
 }
 
-func showError(w io.Writer, path string, err error) {
+func renderErrorToHTML(w io.Writer, path string, err error) {
 	fmt.Fprintf(w, "\n<h3 class=\"error\">%s</h3>\n<div class=\"error errmsg\">%s</div>\n",
 		template.HTMLEscapeString(path), template.HTMLEscapeString(err.Error()))
 }
 
-func AddSection(w io.Writer, item *awsGatherItem) {
+func addAWSSection(w io.Writer, item *awsGatherItem) {
 	if item.err != nil {
-		showError(w, item.path, item.err)
+		renderErrorToHTML(w, item.path, item.err)
 		return
 	}
 	// this handling is a little overkill, now that the data gathering is done ahead
 	// of time in a go-routine
-	if err := addSection(w, item); err != nil {
-		showError(w, item.path, err)
+	if err := rawAWSAddSection(w, item); err != nil {
+		renderErrorToHTML(w, item.path, err)
 	}
 }
 
 func awsHandle(w http.ResponseWriter, req *http.Request) {
 	io.WriteString(w, "<html><head><title>AWS Info Dumper</title></head><body><h1>AWS Info Dumper</h1>\n")
+
 	childCtx, cancel := context.WithTimeout(req.Context(), awsHTTPTimeout)
 	defer cancel()
+
 	if p := os.Getenv("ECS_CONTAINER_METADATA_FILE"); p != "" {
 		io.WriteString(w, "<h2>ECS metadata from file</h2>\n")
 		contents, err := ioutil.ReadFile(p)
 		if err != nil {
-			showError(w, p, err)
+			renderErrorToHTML(w, p, err)
 		} else {
 			fmt.Fprintf(w, "\n<h3>%s</h3>\n", template.HTMLEscapeString(p))
 			template.HTMLEscape(w, contents)
 		}
+
 	} else {
 		io.WriteString(w, "<h2>AWS metadata service (HTTP requests)</h2>\n")
 		sections := []string{
@@ -174,19 +182,18 @@ func awsHandle(w http.ResponseWriter, req *http.Request) {
 			"placement/availability-zone",
 			"iam/info",
 		}
-		items := DoAWSGather(childCtx, sections...)
+		items := doAWSGather(childCtx, sections...)
 		for _, section := range sections {
 			// may have timed out before collecting them all
-			item, ok := items[section]
-			if ok {
-				AddSection(w, item)
+			if item, ok := items[section]; ok {
+				addAWSSection(w, item)
 			}
 		}
 		if childCtx.Err() != nil {
 			// any context expiration has _almost_ certainly been shown in the output of the
-			// AddSection error handling; there's a few nanoseconds race, so rather than
+			// addAWSSection error handling; there's a few nanoseconds race, so rather than
 			// risk aborting early without saying so, just explicitly say "hey we're done".
-			showError(w, "timeout", fmt.Errorf("terminated early"))
+			renderErrorToHTML(w, "timeout", fmt.Errorf("terminated early"))
 		}
 
 	}

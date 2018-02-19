@@ -22,6 +22,8 @@ const DEFAULT_POETRY_DIR = "poetry"
 const REGISTER_POEM_POETRY = false
 
 var (
+	// ErrNoPoemGiven indicates poetry handler not given a poem name when one
+	// was expected.
 	ErrNoPoemGiven = errors.New("poetry: no poem name given")
 )
 
