@@ -27,8 +27,27 @@ defaults: &defaults
 #     at least 17.05, so we override; we only _need_ to override for the build
 #     stage, but I don't want to debug brokenness when multiple versions of
 #     Docker are used at different stages, so we use a consistent image.
+#
 #     And remember that there's a distinct shortage of Variable Interpolation
-#     which we can use.
+#     which we can use.  There are 'references', which are YAML.
+#     It seems one way to organize this, used by circle themselves, is to declare
+#     a dummy top-level key "references", to hold variables, where the second-level
+#     key doesn't matter, but the &name is what's used.  See the common `&defaults`
+#     model, which we were already using, but extended a bit more.
+
+references:
+  remote_docker_version: &remote_docker_version
+    17.11.0-ce
+
+  # beware these are also embedded in run command-lines:
+  build_cache_path: &build_cache_path
+    /tmp/cache/docker-layers.tar
+  image_persist_path: &image_persist_path
+    /tmp/persist/docker-layers.tar
+  persist_directory: &persist_directory
+    /tmp/persist
+
+
 
 jobs:
   build:
@@ -36,15 +55,15 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker:
-          version: 17.11.0-ce
+          version: *remote_docker_version
       - run:
           name: Install dependencies
-          command: dep ensure
+          command: dep ensure -v
       - restore_cache:
           keys:
             - v1-docker-{{ .Branch }}
           paths:
-            - /tmp/cache/docker-layers.tar
+            - *build_cache_path
 
       # The only point to having a build-cache is if using the larger image which has many slow
       # build steps; with a multi-stage Docker-file, using the regular approach will only cache
@@ -55,9 +74,9 @@ jobs:
           command: make -w DIND_CACHE_FILE=/tmp/cache/docker-layers.tar MAKE_DOCKER_TARGET=builder caching-build-image
 
       - save_cache:
-          key: vi-docker-{{ .Branch }}-{{ epoch }}
+          key: v1-docker-{{ .Branch }}-{{ epoch }}
           paths:
-            - /tmp/cache/docker-layers.tar
+            - *build_cache_path
 
       - run:
           name: Build Docker image itself (should be mostly cached within Docker)
@@ -69,7 +88,7 @@ jobs:
       # *** Deploys ***
       #
       # Note that to make the Docker image available to a later workflow step,
-      # we need to manually persist the exported layer cache for the final
+      # we need to manually save the exported layer cache for the final
       # image.
       #
       # This is so unclean.
@@ -77,22 +96,33 @@ jobs:
       # But it's more important to not have a deploy failure invalidate the
       # result of the build step, assuming all tests passed.  Deploys should
       # be resumable.
+      #
+      # And bonus, we can declare an artifact and have the image be pullable
+      # via HTTP for manual import!  But we can't retrieve later artifacts
+      # without manually glueing Circle CI tokens back in for use within Circle
+      # CI, and we've got too much Inception going on already with
+      # docker-in-docker, so I don't want to do that.  Thus we stick with
+      # "persist" for that.
+
+      - store_artifacts:
+          path: *image_persist_path
+          destination: docker-image.tar
 
       - persist_to_workspace:
-          root: /tmp
-          paths: persist
+          root: *persist_directory
+          paths: .
 
 
   deploy_heroku:
     <<: *defaults
     steps:
       - setup_remote_docker:
-          version: 17.11.0-ce
+          version: *remote_docker_version
       - run:
           name: Docker Login to Heroku registry
           command: docker login -u _ -p "${HEROKU_TOKEN}" registry.heroku.com
       - attach_workspace:
-          at: /tmp/persist
+          at: *persist_directory
       - run:
           name: Load Docker image from persisted workspace
           command: docker load -i /tmp/persist/docker-layers.tar
@@ -104,12 +134,12 @@ jobs:
     <<: *defaults
     steps:
       - setup_remote_docker:
-          version: 17.11.0-ce
+          version: *remote_docker_version
       - run:
           name: Docker Login to Docker Hub
           command: docker login -u "${DOCKERHUB_USER}" -p "${DOCKERHUB_PASS}"
       - attach_workspace:
-          at: /tmp/persist
+          at: *persist_directory
       - run:
           name: Load Docker image from persisted workspace
           command: docker load -i /tmp/persist/docker-layers.tar
@@ -143,3 +173,4 @@ workflows:
               ignore:
                 - /.*nohub.*/
 
+# vim: sw=2 :

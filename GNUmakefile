@@ -157,6 +157,7 @@ caching-build-image: step-caching-restore build-image step-caching-persist
 step-caching-restore:
 	@if ! test -n "$(MAKE_DOCKER_TARGET)"; then echo >&2 "Missing: MAKE_DOCKER_TARGET (will cache wrong layer)"; false; fi
 	if test -n "$(DIND_CACHE_FILE)" && test -f "$(DIND_CACHE_FILE)"; then \
+		ls -ld -- "$(DIND_CACHE_FILE)" ; \
 		docker load -i "$(DIND_CACHE_FILE)" -q ; \
 	fi
 
