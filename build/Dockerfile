@@ -51,6 +51,11 @@ ARG RUNTIME_BASE_IMAGE="scratch"
 ARG PORT="8080"
 ARG GO_PARENTDIR="/"
 
+# Warning: changing this doesn't currently affect the build, only what's
+# put into the image label.  Unfortunately, COPY --from does not interpolate
+# variables for the source image name.
+ARG POETRY_IMAGE=philpennock/poetry
+
 EXPOSE ${PORT}
 
 # When adding the storage layers, add the rarest-changing one first, so that
@@ -69,9 +74,18 @@ COPY build/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 ENTRYPOINT ["/dummyapp"]
 CMD ["-log.json"]
 
+# The program itself
 COPY --from=builder ${GO_PARENTDIR}dummyapp /
 
 ENV PORT=${PORT}
+
+# And the data-files, which might normally be assumed to vary often
+#want: COPY --from=${POETRY_IMAGE} /* /poetry/
+# Okay, what we really want is conditional directives in the Dockerfile, so we
+# can do "if POETRY_IMAGE is defined, then copy from it and set this env var".
+COPY --from=philpennock/poetry /* /poetry/
+
+ENV POETRY_DIR=/poetry
 
 # These are replicated ARGs for labelling into the final image
 # Layers introduced by LABEL coalesce into one.
@@ -93,4 +107,5 @@ LABEL tech.pennock.version="${APP_VERSION}"
 LABEL tech.pennock.versions.go="${BUILDER_GOLANG_VERSION}"
 LABEL tech.pennock.versions.dep="${DEP_VERSION}"
 LABEL tech.pennock.gobuildtags="${GO_BUILD_TAGS}"
+LABEL tech.pennock.data.poetryimage="${POETRY_IMAGE}"
 # If we build dep into our own image, we'd tag that in the base.

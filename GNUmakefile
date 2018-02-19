@@ -127,6 +127,7 @@ $(GO_PARENTDIR)$(BINNAME):
 
 LOCALDOCKER_ENVS :=
 LOCALDOCKER_ARGS := -log.json
+LOCALDOCKER_FLAGS := --rm --read-only -P
 
 # Do manipulation here based on needed env-vars; eg:
 #ifeq "$(DATABASE_URL)" ""
@@ -142,7 +143,12 @@ helpful-default: short-help native
 
 .PHONY: localdocker-run
 localdocker-run: check-run-env
-	docker run $(LOCALDOCKER_ENVS) $(DOCKERPROJ):$(DOCKER_TAG) $(LOCALDOCKER_ARGS)
+	id=$$(docker run --detach $(LOCALDOCKER_FLAGS) $(LOCALDOCKER_ENVS) $(DOCKERPROJ):$(DOCKER_TAG) $(LOCALDOCKER_ARGS) ) && \
+		echo "Docker ID: $$id" && \
+		docker port $$id && \
+		docker ps -f id=$$id && \
+		if test -n "$(DOCKER_MACHINE_NAME)"; then docker-machine ip $(DOCKER_MACHINE_NAME); fi && \
+		docker attach $$id
 
 .PHONY: build-run
 build-run: check-run-env build-image localdocker-run
