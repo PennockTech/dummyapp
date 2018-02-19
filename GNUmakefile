@@ -226,7 +226,10 @@ heroku-check:
 	@echo "$(BUILD_TAGS)" | xargs -n1 | grep -qs '^heroku$$'
 
 .PHONY: heroku-deploy
-heroku-deploy: heroku-check build-image
+heroku-deploy: heroku-check build-image step-heroku-deploy
+
+.PHONY: step-heroku-deploy
+step-heroku-deploy:
 	docker tag $(DOCKERPROJ):$(DOCKER_TAG) $(HEROKU_CR)
 	docker push $(HEROKU_CR)
 

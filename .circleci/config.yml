@@ -7,7 +7,6 @@ version: 2
 
 
 defaults: &defaults
-  working_directory: ~/go/src/go.pennock.tech/dummyapp
   docker:
     - image: domainr/ci:swan
       environment:
@@ -39,6 +38,9 @@ references:
   remote_docker_version: &remote_docker_version
     17.11.0-ce
 
+  project_working_dir: &project_working_dir
+    ~/go/src/go.pennock.tech/dummyapp
+
   # beware these are also embedded in run command-lines:
   build_cache_path: &build_cache_path
     /tmp/cache/docker-layers.tar
@@ -52,6 +54,7 @@ references:
 jobs:
   build:
     <<: *defaults
+    working_directory: *project_working_dir
     steps:
       - checkout
       - setup_remote_docker:
@@ -82,6 +85,9 @@ jobs:
           name: Build Docker image itself (should be mostly cached within Docker)
           command: make -w DIND_PERSIST_FILE=/tmp/persist/docker-layers.tar persist-build-image
 
+      - run: make -n step-heroku-deploy > /tmp/persist/heroku-deploy.sh
+
+      - run: make -n push-image > /tmp/persist/docker-hub-deploy.sh
 
       # Run tests here
 
@@ -113,6 +119,20 @@ jobs:
           paths: .
 
 
+  # For the deploy targets, note that unless we checkout again, we don't have
+  # the Makefile; we can only persist one root to the workspace, but we don't
+  # want to embed in knowledge of where in the Docker image '~' is, since it
+  # can vary between builders.
+  #
+  # While we've built the image with multiple tags, for pushing to Heroku
+  # those don't matter, we can just push latest since we also built with that.
+  # But for pushing to Docker Hub, the actual tag is precious.
+  #
+  # Thus we've made sure that the actual deploy steps in GNUmakefile also have
+  # standalone modes, with no dependencies; we can use "make -n step-foo" to
+  # get the actual deploy instructions emitted, keeping the GNUmakefile as the
+  # single source of truth for that.
+
   deploy_heroku:
     <<: *defaults
     steps:
@@ -128,7 +148,7 @@ jobs:
           command: docker load -i /tmp/persist/docker-layers.tar
       - run:
           name: Deploy docker image to Heroku
-          command: make -w heroku-deploy
+          command: source /tmp/persist/heroku-deploy.sh
 
   push_docker_hub:
     <<: *defaults
@@ -144,8 +164,8 @@ jobs:
           name: Load Docker image from persisted workspace
           command: docker load -i /tmp/persist/docker-layers.tar
       - run:
-          name: Deploy docker image to Heroku
-          command: make -w push-image
+          name: Push docker image to Docker Hub
+          command: source /tmp/persist/docker-hub-deploy.sh
 
 
 workflows:
