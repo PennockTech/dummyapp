@@ -82,7 +82,7 @@ MAKE_EXTRA_DOCKER_BUILD_ARGS :=$(DERIVED_BUILD_ARGS)$(EXTRA_DOCKER_BUILD_ARGS) -
 
 .PHONY: setup
 setup: have-dep
-	test -n "NODEP" || dep ensure
+	test -n "$(NODEP)" || dep ensure -v
 
 # build-image boils down to:
 #   docker build -t $(DOCKERPROJ) .
