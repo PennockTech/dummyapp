@@ -37,6 +37,47 @@ make BUILD_TAGS=heroku heroku-deploy
 
 Created repo on Docker Hub through web UI: `pennocktech/dummyapp`
 
+For a second project, `philpennock/poetry` (as an example of depending upon
+external data) I set up an automated Docker Hub build.  That project creates
+a data-only Docker image, which we now depend upon at build time.  There's
+one `COPY --from` line in our `Dockerfile` to edit to remove that.
+
+Created Circle CI project; pushed on branch circle, aborted first build on
+master.
+
+
+### Authentication
+
+Created a Circle CI org-level Context, `heroku-and-dockerhub`, added
+credentials there for `HEROKU_TOKEN`, `DOCKERHUB_USER`, and
+`DOCKERHUB_PASS`.
+
+As to the values:
+
+1. Heroku is bad enough in only having one auth token at a time, unscoped, so
+   no ability to trace leaks or constrain actions of the token.
+   Run `heroku auth:token` while signed in, that's the token to use.
+2. Docker Hub ... defaults to storing your usercode and master password in
+   `~/.docker/config.json`; you probably want to install
+   `docker-credential-helper` if you haven't already done so.
+3. Docker Hub on v2 has an API for getting tokens, but the `offline_token=true`
+   part of a request is not honored and you don't get anything usable for
+   passing into another service.
+4. So: create a bot account for Docker Hub via normal sign-up; this bot can
+   create arbitrary repos of its own, but only under its own account.
+   Then in the fully privileged admin account, click `Organizations` in the
+   header, then your organization, then near the top `Teams` and create a new
+   team, `dummyapppushers` and add the new account to it.
+   Then go to the repository page, `Collaborators`, and add the
+   `dummyapppushers` team with Write access.
+   + You can now use the usercode/password for the bot account in
+     `DOCKERHUB_USER` and `DOCKERHUB_PASS`.
+
+Now update the `.circleci/config.yml` to reference the context; yes, any build
+within the org can request any context, you can't have admins defining
+restricted contexts with some credentials.  If you want that, then you'll need
+multiple Circle CI orgs (each with their own billing?).
+
 ## To Do
 
 We have a serving area, `poetry/` (which can be repointed).
