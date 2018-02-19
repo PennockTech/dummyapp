@@ -41,6 +41,21 @@ references:
   project_working_dir: &project_working_dir
     ~/go/src/go.pennock.tech/dummyapp
 
+  # We don't need our unusual Docker image pulled for the deploy steps, it will
+  # rarely already be on the machine, since the deploy is unlikely to happen on
+  # the same host as the build.
+  #
+  # We pretty much need: a shell, the docker command, whatever the
+  # setup_remote_docker tag requires.  Grab a current Docker, since the
+  # highest version documented by Circle CI for remote Docker (17.11) is
+  # too old to be listed in the Supported tags for docker images.
+  # So we'll have 18.02 client talking to 17.11 server within CI, and
+  # whatever the external repositories are.
+  deployer_image: &deployer_image
+    docker:
+      - image: docker:18.02.0-ce-git
+
+
   # beware these are also embedded in run command-lines:
   build_cache_path: &build_cache_path
     /tmp/cache/docker-layers.tar
@@ -59,30 +74,44 @@ jobs:
       - checkout
       - setup_remote_docker:
           version: *remote_docker_version
+
+      # FIXME: have a git repo to hold the vendored dependencies, or perhaps
+      # do cache these, although note that means restore-cache before checkout
       - run:
           name: Install dependencies
           command: dep ensure -v
-      - restore_cache:
-          keys:
-            - v1-docker-{{ .Branch }}
-          paths:
-            - *build_cache_path
 
-      # The only point to having a build-cache is if using the larger image which has many slow
-      # build steps; with a multi-stage Docker-file, using the regular approach will only cache
-      # the final small image, which is nearly useless for optimization.  We will need it for
-      # workspace propagation though.
+      # For languages where there are many slow build steps, or when installing
+      # an OS package as part of the final image, a build-cache makes sense.
+      # In our case though, we build using an image which has already been
+      # pulled from the repository at least once (because we're running in it
+      # now, assuming docker.environment.DOCKER_BUILDER_IMAGE == docker.image)
+      # and all the content to be built is either in the repo or should be
+      # (the dependencies step above still needs a little work).
+      # So all that the cache does is serialize to cache something which can
+      # as quickly be got from somewhere else.  And the OS image is _huge_, this
+      # is not fast.
+      #
+      # So I'm leaving the cache entries in, commented out with #C#, as an example
+      # of how this can be done; but not using it myself.
+
+      #C# - restore_cache:
+      #C#     keys:
+      #C#       - v1-docker-{{ .Branch }}
+      #C#     paths:
+      #C#       - *build_cache_path
+
+      #C# - run:
+      #C#     name: Build Docker builder image using Docker Layer Cache image-file
+      #C#     command: make -w DIND_CACHE_FILE=/tmp/cache/docker-layers.tar MAKE_DOCKER_TARGET=builder caching-build-image
+
+      #C# - save_cache:
+      #C#     key: v1-docker-{{ .Branch }}-{{ epoch }}
+      #C#     paths:
+      #C#       - *build_cache_path
+
       - run:
-          name: Build Docker builder image using Docker Layer Cache image-file
-          command: make -w DIND_CACHE_FILE=/tmp/cache/docker-layers.tar MAKE_DOCKER_TARGET=builder caching-build-image
-
-      - save_cache:
-          key: v1-docker-{{ .Branch }}-{{ epoch }}
-          paths:
-            - *build_cache_path
-
-      - run:
-          name: Build Docker image itself (should be mostly cached within Docker)
+          name: Build Docker image
           command: make -w DIND_PERSIST_FILE=/tmp/persist/docker-layers.tar persist-build-image
 
       - run: make -n step-heroku-deploy > /tmp/persist/heroku-deploy.sh
@@ -135,6 +164,7 @@ jobs:
 
   deploy_heroku:
     <<: *defaults
+    <<: *deployer_image
     steps:
       - setup_remote_docker:
           version: *remote_docker_version
@@ -152,6 +182,7 @@ jobs:
 
   push_docker_hub:
     <<: *defaults
+    <<: *deployer_image
     steps:
       - setup_remote_docker:
           version: *remote_docker_version
