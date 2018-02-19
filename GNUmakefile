@@ -165,15 +165,18 @@ step-caching-persist:
 	if test -n "$(DIND_CACHE_FILE)"; then \
 		mkdir -pv "$$(dirname "$(DIND_CACHE_FILE)")" && \
 		docker save -o "$(DIND_CACHE_FILE)" $(DOCKERPROJ):target-$(MAKE_DOCKER_TARGET)-$(DOCKER_TAG) ; \
+		ls -ld -- "$(DIND_CACHE_FILE)" ; \
 	fi
 
 .PHONY: persist-build-image
 persist-build-image: build-image step-build-image-persist
 
 .PHONY: step-build-image-persist
+step-build-image-persist:
 	if test -n "$(DIND_PERSIST_FILE)"; then \
 		mkdir -pv "$$(dirname "$(DIND_PERSIST_FILE)")" && \
 		docker save -o "$(DIND_PERSIST_FILE)" $(DOCKERPROJ):$(DOCKER_TAG) $(DOCKERPROJ):latest ; \
+		ls -ld -- "$(DIND_PERSIST_FILE)" ; \
 	fi
 
 
