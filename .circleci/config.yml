@@ -1,0 +1,143 @@
+version: 2
+
+# Assumed environment variables from config:
+#   HEROKU_TOKEN:  an auth token for Heroku, needed to configure docker push
+#   DOCKERHUB_USER:  Docker Hub user to push to Hub as
+#   DOCKERHUB_PASS:  A token or somesuch to authenticate to Docker Hub
+
+
+defaults: &defaults
+  working_directory: ~/go/src/go.pennock.tech/dummyapp
+  docker:
+    - image: domainr/ci:swan
+      environment:
+        DOCKER_BUILDER_IMAGE: "domainr/ci:swan"
+        DOCKER_BUILDER_GOLANG_VERSION: "1.9.4"
+        GO_PARENTDIR: "/home/domainr/"
+        DOCKERPROJ: "pennocktech/dummyapp"
+        BUILD_TAGS: "heroku"
+        BUILDER_SYSTEM: "circleci"
+
+# <https://circleci.com/blog/how-to-build-a-docker-image-on-circleci-2-0/>
+#  -- the loose gameplan, reworked a fair bit, especially since we have
+#     multi-stage to deal with, so the caching would have been wrong for us
+#
+# <https://circleci.com/docs/2.0/building-docker-images/>
+#  -- the default image is currently 17.03.0-ce but multi-stage builds require
+#     at least 17.05, so we override; we only _need_ to override for the build
+#     stage, but I don't want to debug brokenness when multiple versions of
+#     Docker are used at different stages, so we use a consistent image.
+#     And remember that there's a distinct shortage of Variable Interpolation
+#     which we can use.
+
+jobs:
+  build:
+    <<: *defaults
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 17.11.0-ce
+      - run:
+          name: Install dependencies
+          command: dep ensure
+      - restore_cache:
+          keys:
+            - v1-docker-{{ .Branch }}
+          paths:
+            - /tmp/cache/docker-layers.tar
+
+      # The only point to having a build-cache is if using the larger image which has many slow
+      # build steps; with a multi-stage Docker-file, using the regular approach will only cache
+      # the final small image, which is nearly useless for optimization.  We will need it for
+      # workspace propagation though.
+      - run:
+          name: Build Docker builder image using Docker Layer Cache image-file
+          command: make -w DIND_CACHE_FILE=/tmp/cache/docker-layers.tar MAKE_DOCKER_TARGET=builder caching-build-image
+
+      - save_cache:
+          key: vi-docker-{{ .Branch }}-{{ epoch }}
+          paths:
+            - /tmp/cache/docker-layers.tar
+
+      - run:
+          name: Build Docker image itself (should be mostly cached within Docker)
+          command: make -w DIND_PERSIST_FILE=/tmp/persist/docker-layers.tar persist-build-image
+
+
+      # Run tests here
+
+      # *** Deploys ***
+      #
+      # Note that to make the Docker image available to a later workflow step,
+      # we need to manually persist the exported layer cache for the final
+      # image.
+      #
+      # This is so unclean.
+      #
+      # But it's more important to not have a deploy failure invalidate the
+      # result of the build step, assuming all tests passed.  Deploys should
+      # be resumable.
+
+      - persist_to_workspace:
+          root: /tmp
+          paths: persist
+
+
+  deploy_heroku:
+    <<: *defaults
+    steps:
+      - setup_remote_docker:
+          version: 17.11.0-ce
+      - run:
+          name: Docker Login to Heroku registry
+          command: docker login -u _ -p "${HEROKU_TOKEN}" registry.heroku.com
+      - attach_workspace:
+          at: /tmp/persist
+      - run:
+          name: Load Docker image from persisted workspace
+          command: docker load -i /tmp/persist/docker-layers.tar
+      - run:
+          name: Deploy docker image to Heroku
+          command: make -w heroku-deploy
+
+  push_docker_hub:
+    <<: *defaults
+    steps:
+      - setup_remote_docker:
+          version: 17.11.0-ce
+      - run:
+          name: Docker Login to Docker Hub
+          command: docker login -u "${DOCKERHUB_USER}" -p "${DOCKERHUB_PASS}"
+      - attach_workspace:
+          at: /tmp/persist
+      - run:
+          name: Load Docker image from persisted workspace
+          command: docker load -i /tmp/persist/docker-layers.tar
+      - run:
+          name: Deploy docker image to Heroku
+          command: make -w push-image
+
+
+workflows:
+  version: 2
+
+  build_and_deploy:
+    jobs:
+      - build
+      - deploy_heroku:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - master
+                # Doing initial CircleCI setup on a branch:
+                - circle
+      - push_docker_hub:
+          requires:
+            - build
+          filters:
+            branches:
+              ignore:
+                - /.*nohub.*/
+

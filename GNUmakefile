@@ -29,6 +29,10 @@ SOURCES      =$(call rwildnovendor,,*.go)
 DEP_VERSION  =$(shell dep version | sed -n 's/^ *version *: *//p')
 DOCKERFILE  :=./build/Dockerfile
 
+# This is used for a Docker-in-Docker build approach, where caches are
+# optionally loaded in from a cache file; see 'caching-image' target
+DIND_CACHE_FILE ?=
+
 # This needs to be within the context passed to the Docker builder, so the
 # filesystem can't really be read-only, but it's a bit weird to have to modify
 # the source tree on a per-build basis without sub-dirs.  So we support
@@ -78,7 +82,12 @@ endif
 # `prebuild-sanity-check` target for this, and any other such checks before
 # build proceeds.
 
-MAKE_EXTRA_DOCKER_BUILD_ARGS :=$(DERIVED_BUILD_ARGS)$(EXTRA_DOCKER_BUILD_ARGS) -t $(DOCKERPROJ):$(DOCKER_TAG)
+DERIVED_EXTRA_ARGS :=
+ifdef MAKE_DOCKER_TARGET
+DERIVED_EXTRA_ARGS += --target $(MAKE_DOCKER_TARGET) -t $(DOCKERPROJ):target-$(MAKE_DOCKER_TARGET)-$(DOCKER_TAG)
+endif
+
+MAKE_EXTRA_DOCKER_BUILD_ARGS :=$(DERIVED_BUILD_ARGS)$(DERIVED_EXTRA_ARGS) $(EXTRA_DOCKER_BUILD_ARGS) -t $(DOCKERPROJ):$(DOCKER_TAG)
 
 .PHONY: setup
 setup: have-dep
@@ -124,6 +133,49 @@ $(GO_PARENTDIR)$(BINNAME):
 		-a -installsuffix docker-nocgo \
 		-o $(GO_PARENTDIR)$(BINNAME) \
 		$(PROJGO)
+
+# Optionally, rather than multi-stage build Docker, invoked from within Docker,
+# we might use an alternative target which depends upon indocker-build-go
+# invoked locally, not within Docker.
+#
+# This would have DOCKERFILE overriden from the command-line to work.
+# Assumption: build outside Docker, in appropriate OS, copy files inside
+# with a much smaller Dockerfile.
+#
+# I don't want to maintain a second Dockerfile though, not until I surrender
+# and build the things using M4 macros; which, on the bright side, would reduce
+# the need for manual ARG duplication.
+
+# You almost certainly want to be using MAKE_DOCKER_TARGET=builder
+# with this, and then reinvoking, afterwards with the normal build, because
+# otherwise the multi-stage dockerfile will result in caching the tiny final
+# image and not all the heavy-weight build-steps needed before that.
+.PHONY: caching-build-image
+caching-build-image: step-caching-restore build-image step-caching-persist
+
+.PHONY: step-caching-restore
+step-caching-restore:
+	@if ! test -n "$(MAKE_DOCKER_TARGET)"; then echo >&2 "Missing: MAKE_DOCKER_TARGET (will cache wrong layer)"; false; fi
+	if test -n "$(DIND_CACHE_FILE)" && test -f "$(DIND_CACHE_FILE)"; then \
+		docker load -i "$(DIND_CACHE_FILE)" -q ; \
+	fi
+
+.PHONY: step-caching-persist
+step-caching-persist:
+	if test -n "$(DIND_CACHE_FILE)"; then \
+		mkdir -pv "$$(dirname "$(DIND_CACHE_FILE)")" && \
+		docker save -o "$(DIND_CACHE_FILE)" $(DOCKERPROJ):target-$(MAKE_DOCKER_TARGET)-$(DOCKER_TAG) ; \
+	fi
+
+.PHONY: persist-build-image
+persist-build-image: build-image step-build-image-persist
+
+.PHONY: step-build-image-persist
+	if test -n "$(DIND_PERSIST_FILE)"; then \
+		mkdir -pv "$$(dirname "$(DIND_PERSIST_FILE)")" && \
+		docker save -o "$(DIND_PERSIST_FILE)" $(DOCKERPROJ):$(DOCKER_TAG) $(DOCKERPROJ):latest ; \
+	fi
+
 
 LOCALDOCKER_ENVS :=
 LOCALDOCKER_ARGS := -log.json
@@ -247,6 +299,9 @@ help:
 	@echo ""
 	@echo "  push-image         push image to Docker Hub"
 	@echo "  heroku-deploy      build in Docker for heroku and run"
+	@echo ""
+	@echo "  caching-build-image for build-systems, caching intermediates"
+	@echo "  persist-build-image for build-systems"
 	@echo ""
 	@echo "  print-FOO          show the value of the FOO Make variable"
 	@echo "  show-versions      summary of version numbers of interest"
