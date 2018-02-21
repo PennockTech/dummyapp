@@ -1,6 +1,6 @@
 # This is a GNU makefile
 
-.DEFAULT_GOAL: helpful-default
+.DEFAULT_GOAL := helpful-default
 .PHONY: default
 default: helpful-default
 
