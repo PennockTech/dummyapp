@@ -150,10 +150,12 @@ $(GO_PARENTDIR)$(BINNAME):
 # with this, and then reinvoking, afterwards with the normal build, because
 # otherwise the multi-stage dockerfile will result in caching the tiny final
 # image and not all the heavy-weight build-steps needed before that.
+#
+# TARGET FOR: build-systems
 .PHONY: caching-build-image
 caching-build-image: step-caching-restore build-image step-caching-persist
 
-.PHONY: step-caching-restore
+.INTERMEDIATE: step-caching-restore
 step-caching-restore:
 	@if ! test -n "$(MAKE_DOCKER_TARGET)"; then echo >&2 "Missing: MAKE_DOCKER_TARGET (will cache wrong layer)"; false; fi
 	if test -n "$(DIND_CACHE_FILE)" && test -f "$(DIND_CACHE_FILE)"; then \
@@ -161,7 +163,7 @@ step-caching-restore:
 		docker load -i "$(DIND_CACHE_FILE)" -q ; \
 	fi
 
-.PHONY: step-caching-persist
+.INTERMEDIATE: step-caching-persist
 step-caching-persist:
 	if test -n "$(DIND_CACHE_FILE)"; then \
 		mkdir -pv "$$(dirname "$(DIND_CACHE_FILE)")" && \
@@ -169,10 +171,11 @@ step-caching-persist:
 		ls -ld -- "$(DIND_CACHE_FILE)" ; \
 	fi
 
+# TARGET FOR: build-systems
 .PHONY: persist-build-image
 persist-build-image: build-image step-build-image-persist
 
-.PHONY: step-build-image-persist
+.INTERMEDIATE: step-build-image-persist
 step-build-image-persist:
 	if test -n "$(DIND_PERSIST_FILE)"; then \
 		mkdir -pv "$$(dirname "$(DIND_PERSIST_FILE)")" && \
@@ -220,7 +223,7 @@ native: setup $(BINNAME)
 $(BINNAME): $(SOURCES) GNUmakefile
 	$(GO_CMD) build -o $@ -tags "$(BUILD_TAGS)" -ldflags "$(GO_LDFLAGS)" -v
 
-.PHONY: heroku-check
+.INTERMEDIATE: heroku-check
 heroku-check:
 	@echo Checking for 'heroku' in BUILD_TAGS [$(BUILD_TAGS)]
 	@echo "$(BUILD_TAGS)" | xargs -n1 | grep -qs '^heroku$$'
@@ -233,7 +236,7 @@ step-heroku-deploy:
 	docker tag $(DOCKERPROJ):$(DOCKER_TAG) $(HEROKU_CR)
 	docker push $(HEROKU_CR)
 
-.PHONY: have-dep
+.INTERMEDIATE: have-dep
 have-dep:
 ifeq "$(shell dep version 2>/dev/null)" ""
 ifeq ($(LOCAL_OS), Darwin)
@@ -247,7 +250,7 @@ else
 endif
 endif
 
-.PHONY: check-run-env
+.INTERMEDIATE: check-run-env
 check-env:
 	@true
 #ifndef SOME_NEEDED_TOKEN
@@ -256,7 +259,7 @@ check-env:
 
 # This is for _any_ sanity checks before the build, but we'll start with Docker
 # tags
-.PHONY: prebuild-sanity-check
+.INTERMEDIATE: prebuild-sanity-check
 # Docker Tags:
 # > A tag name must be valid ASCII and may contain lowercase and uppercase
 # > letters, digits, underscores, periods and dashes. A tag name may not start
@@ -272,7 +275,7 @@ prebuild-sanity-check:
 # dir and collapse back to the top repo.  Non-git not handled.
 #
 # NB: putting '.git' into .dockerignore would break build/version
-.PHONY: show-versions
+.INTERMEDIATE: show-versions
 show-versions:
 	@echo "# Show-versions:"
 	@date
@@ -313,7 +316,7 @@ help:
 	@echo "  print-FOO          show the value of the FOO Make variable"
 	@echo "  show-versions      summary of version numbers of interest"
 
-.PHONY: banner-%
+.INTERMEDIATE: banner-%
 banner-%:
 	@echo ""
 	@echo "*** $* ***"
