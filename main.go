@@ -275,6 +275,8 @@ func realMain() int {
 	}
 	defer statsManager.Stop()
 
+	_ = setupPoetry(logger) // we don't care if it succeeds or not, let it log
+
 	serve := setupWebserver(logger)
 	if serve == nil {
 		return 1

@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync/atomic"
+	"syscall"
 
 	"go.pennock.tech/dummyapp/internal/logging"
 )
@@ -80,62 +80,50 @@ func poetryHandleFunc(w http.ResponseWriter, req *http.Request) {
 	io.WriteString(w, "</body></html>\n")
 }
 
-var poetryComplainButOnce uint32
-
-func init() {
-	guardExistence := func(logger logging.Logger) bool {
-		// A scenario where nil logger makes sense, given that we're also
-		// called at per-request time for root page.  Plus we want to
-		// inhibit double logging, since called for two handlers.
-		// Don't want sync.Once, we take a parameter (beginning to regret
-		// passing the logging in, but we can't just return an error and
-		// get JSON fields populated with the poetry dir.
-		// I need to rethink this, missing something obvious if ending
-		// up this clumsy.
-		if logger != nil {
-			if atomic.AddUint32(&poetryComplainButOnce, 1) != 1 {
-				logger = nil
-			} else {
-				logger = logger.WithField("directory", poetryOptions.dir)
-			}
-		}
-		fi, err := os.Stat(poetryOptions.dir)
+// setupPoetry should be called by the main go-routine after options have been
+// parsed.  We init various data-structions based upon the values of the options.
+func setupPoetry(logger logging.Logger) bool {
+	err := setupPoetryNolog()
+	if logger == nil {
 		if err != nil {
-			if logger != nil {
-				logger.WithError(err).Warning("skipping poetry setup")
-			}
 			return false
-		}
-		if !fi.IsDir() {
-			if logger != nil {
-				logger.Warning("not a directory, skipping poetry setup")
-			}
-			return false
-		}
-		if logger != nil {
-			logger.Info("serving poetry")
 		}
 		return true
+	}
+	logger = logger.WithField("directory", poetryOptions.dir)
+	if err != nil {
+		logger.WithError(err).Warning("skipping poetry setup")
+		return false
+	}
+	logger.Info("serving poetry")
+	return true
+}
+
+func setupPoetryNolog() error {
+	fi, err := os.Stat(poetryOptions.dir)
+	if err != nil {
+		return err
+	}
+	if !fi.IsDir() {
+		return syscall.ENOTDIR
 	}
 
 	if REGISTER_POEM_POETRY {
 		addFirstLevelPageItem(dummyAppFirstLevelPage{
-			name:        "poem/",
-			handler:     http.StripPrefix("/poem", http.FileServer(poetryDir(poetryOptions.dir))),
-			skipIndex:   true,
-			onlyExistIf: guardExistence,
+			name:      "poem/",
+			handler:   http.StripPrefix("/poem", http.FileServer(poetryDir(poetryOptions.dir))),
+			skipIndex: true,
 		})
 
 		addFirstLevelPageItem(dummyAppFirstLevelPage{
-			name:        "poetry",
-			function:    poetryHandleFunc,
-			onlyExistIf: guardExistence,
+			name:     "poetry",
+			function: poetryHandleFunc,
 		})
 	} else {
 		addFirstLevelPageItem(dummyAppFirstLevelPage{
-			name:        "poetry/",
-			handler:     http.StripPrefix("/poetry", http.FileServer(poetryDir(poetryOptions.dir))),
-			onlyExistIf: guardExistence,
+			name:    "poetry/",
+			handler: http.StripPrefix("/poetry", http.FileServer(poetryDir(poetryOptions.dir))),
 		})
 	}
+	return nil
 }
