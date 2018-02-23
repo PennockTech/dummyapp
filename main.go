@@ -216,7 +216,6 @@ func setupWebserver(logger logging.Logger) func() error {
 		if logger != nil {
 			logger.
 				WithField("listen", server.Addr).
-				WithField("bound", listener.Addr().String()).
 				WithError(err).
 				Error("listening failed")
 		} else {
