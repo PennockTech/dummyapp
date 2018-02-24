@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  name = "github.com/felixge/httpsnoop"
+  packages = ["."]
+  revision = "eadd4fad6aac69ae62379194fe0219f3dbc80fd3"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/heroku/x"
   packages = ["hmetrics"]
@@ -20,7 +26,7 @@
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "650f4a345ab4e5b245a3034b110ebc7299e68186"
+  revision = "49796115aa4b964c318aad4f3084fdb41e9aa067"
 
 [[projects]]
   branch = "master"
@@ -29,11 +35,11 @@
     "unix",
     "windows"
   ]
-  revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
+  revision = "88d2dcc510266da9f7f8c7f34e1940716cab5f5c"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ce9f1f1cca5518091d29fa21ca6e89c9c3b07da595413f113af581c71fb2a393"
+  inputs-digest = "7a6bcbfd0c3e04e379ee14a853d4f044e16f7a8d09e03946f82142b55baf2cfb"
   solver-name = "gps-cdcl"
   solver-version = 1

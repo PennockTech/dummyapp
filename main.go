@@ -27,6 +27,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/felixge/httpsnoop"
+
 	"go.pennock.tech/dummyapp/internal/logging"
 	"go.pennock.tech/dummyapp/internal/stats"
 	"go.pennock.tech/dummyapp/internal/version"
@@ -105,12 +107,19 @@ func LogWrapHandler(h http.Handler, logger logging.Logger, name string) http.Han
 		logger = logger.WithField("request", requestID).WithField("page", name)
 		logger.
 			WithField("method", req.Method).
-			WithField("url", req.URL).
+			WithField("url.path", req.URL.Path).
+			WithField("url.query", req.URL.RawQuery).
 			WithField("host", req.Host).
 			WithField("remote", req.RemoteAddr).
 			Info("received") // can decorate with body size, etc etc
+		defer func() {
+			if x := recover(); x != nil {
+				logger.WithField("panic", x).Error("run-time panic")
+			}
+		}()
 		defer logger.Info("responded")
-		h.ServeHTTP(w, req.WithContext(context.WithValue(req.Context(), dummyappLoggerKey, logger)))
+		m := httpsnoop.CaptureMetrics(h, w, req)
+		logger.WithField("code", m.Code).WithField("duration", m.Duration).WithField("length", m.Written).Info("responded")
 	}
 }
 
