@@ -117,9 +117,13 @@ func LogWrapHandler(h http.Handler, logger logging.Logger, name string) http.Han
 				logger.WithField("panic", x).Error("run-time panic")
 			}
 		}()
-		defer logger.Info("responded")
 		m := httpsnoop.CaptureMetrics(h, w, req)
-		logger.WithField("code", m.Code).WithField("duration", m.Duration).WithField("length", m.Written).Info("responded")
+		// Writing non-JSON logs, `m.Duration` is string-formatted so we get
+		// a pretty value with a suffix, probably µs.  With JSON, we just get
+		// the integer value, which is in ns, and is not obviously so.
+		// Coerce to get a string-of-floating-point.
+		dur := fmt.Sprintf("%.2f", float64(m.Duration)/float64(time.Microsecond))
+		logger.WithField("code", m.Code).WithField("duration.µs", dur).WithField("length", m.Written).Info("responded")
 	}
 }
 
