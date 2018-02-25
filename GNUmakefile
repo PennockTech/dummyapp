@@ -56,9 +56,18 @@ BUILD_TAGS ?=
 endif
 
 ifndef REPO_VERSION
-REPO_VERSION := $(shell ./build/version)
+REPO_VERSION :=$(shell ./build/version)
 endif
-GO_LDFLAGS+= -X $(PROJGO)/internal/version.VersionString=$(REPO_VERSION)
+# POSIX mandates date(1) has `-u` (is the only mandated flag) and mandates
+# +format for output per format.
+#
+# Whether or not to inherit the timestamp is interesting: which is more likely
+# to have accurate and trusted time, the container, or the system triggering
+# the build in the container?  For now, generate as close to the build as
+# possible, ignoring env.
+BUILD_TIMESTAMP :=$(shell date -u "+%Y-%m-%d %H:%M:%SZ")
+GO_LDFLAGS+= -X "$(PROJGO)/internal/version.VersionString=$(REPO_VERSION)" \
+	     -X "$(PROJGO)/internal/version.BuildTime=$(BUILD_TIMESTAMP)"
 
 NOOP:=
 SPACE:=$(NOOP) $(NOOP)
@@ -128,8 +137,8 @@ $(GO_PARENTDIR)$(BINNAME):
 	cd $(CTXPROJDIR) && \
 		CGO_ENABLED=0 GOOS=$(DOCKER_GOOS) \
 		$(GO_CMD) build \
-		-tags "docker $(BUILD_TAGS)" \
-		-ldflags "$(GO_LDFLAGS) -s" \
+		-tags 'docker $(BUILD_TAGS)' \
+		-ldflags '$(GO_LDFLAGS) -s' \
 		-a -installsuffix docker-nocgo \
 		-o $(GO_PARENTDIR)$(BINNAME) \
 		$(PROJGO)
@@ -221,7 +230,7 @@ native-run: check-run-env native
 native: setup $(BINNAME)
 
 $(BINNAME): $(SOURCES) GNUmakefile
-	$(GO_CMD) build -o $@ -tags "$(BUILD_TAGS)" -ldflags "$(GO_LDFLAGS)" -v
+	$(GO_CMD) build -o $@ -tags '$(BUILD_TAGS)' -ldflags '$(GO_LDFLAGS)' -v
 
 .INTERMEDIATE: heroku-check
 heroku-check:

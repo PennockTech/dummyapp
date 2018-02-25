@@ -109,3 +109,10 @@ LABEL tech.pennock.versions.dep="${DEP_VERSION}"
 LABEL tech.pennock.gobuildtags="${GO_BUILD_TAGS}"
 LABEL tech.pennock.data.poetryimage="${POETRY_IMAGE}"
 # If we build dep into our own image, we'd tag that in the base.
+#
+# The value from `docker inspect <image> | .[0].Created` field is "image
+# recorded as the actual build-date", not "image created in this Docker
+# system".  I know this because the gcr.io/distroless images are built with a
+# zeroed timestamp and show up as "48 years ago" and the same jq invocation
+# shows that's what's stamped in them.
+# So we don't try to reproduce that timestamp in our LABELs.

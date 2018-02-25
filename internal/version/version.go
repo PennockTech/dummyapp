@@ -18,6 +18,7 @@ const Program = "dummyapp"
 // number is merely whatever was in source, not authoritatively stamped in
 // later; this could thus be a build from any of a range of commits.
 var VersionString = "0.0.2-barebuild"
+var BuildTime string
 
 // Pull the version derivation from whatever variables go into the makeup out
 // into a function so that we can log it at startup.
@@ -28,6 +29,9 @@ func CurrentVersion() string {
 func Version(w io.Writer) {
 	fmt.Fprintf(w, "%s: Version %s\n", Program, CurrentVersion())
 	fmt.Fprintf(w, "%s: Golang: Runtime: %s\n", Program, runtime.Version())
+	if BuildTime != "" {
+		fmt.Fprintf(w, "%s: Build-time: %s\n", Program, BuildTime)
+	}
 }
 
 const ENV_LOCATION = "LOCATION"
