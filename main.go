@@ -107,8 +107,8 @@ func LogWrapHandler(h http.Handler, logger logging.Logger, name string) http.Han
 		logger = logger.WithField("request", requestID).WithField("page", name)
 		logger.
 			WithField("method", req.Method).
-			WithField("url.path", req.URL.Path).
-			WithField("url.query", req.URL.RawQuery).
+			WithField("url_path", req.URL.Path).
+			WithField("url_query", req.URL.RawQuery).
 			WithField("host", req.Host).
 			WithField("remote", req.RemoteAddr).
 			Info("received") // can decorate with body size, etc etc
@@ -123,7 +123,7 @@ func LogWrapHandler(h http.Handler, logger logging.Logger, name string) http.Han
 		// the integer value, which is in ns, and is not obviously so.
 		// Coerce to get a string-of-floating-point.
 		dur := fmt.Sprintf("%.2f", float64(m.Duration)/float64(time.Microsecond))
-		logger.WithField("code", m.Code).WithField("duration.µs", dur).WithField("length", m.Written).Info("responded")
+		logger.WithField("code", m.Code).WithField("duration_us", dur).WithField("length", m.Written).Info("responded")
 	}
 }
 
@@ -133,7 +133,7 @@ func send404(w http.ResponseWriter, req *http.Request) {
 	io.WriteString(w, "page not found")
 	l := loggerFromContext(req.Context())
 	if l != nil {
-		l.WithField("URL", req.URL).Info("sent 404")
+		l.WithField("http_error", 404).WithField("URL", req.URL).Info("sent 404")
 	}
 }
 
@@ -276,9 +276,9 @@ func realMain() int {
 		WithField("gid", os.Getgid()).
 		WithField("pid", os.Getpid())
 
-	startupLogCtx := masterThreadLogger.WithField("version", version.CurrentVersion())
-	if os.Getenv(version.ENV_LOCATION) != "" {
-		startupLogCtx = startupLogCtx.WithField("location", os.Getenv(version.ENV_LOCATION))
+	startupLogCtx := masterThreadLogger
+	for _, pair := range version.LogPairs() {
+		startupLogCtx = startupLogCtx.WithField(pair.Key, pair.Value)
 	}
 	startupLogCtx.Info("starting")
 

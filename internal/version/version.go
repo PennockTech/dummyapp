@@ -7,6 +7,7 @@ package version
 import (
 	"fmt"
 	"io"
+	"os"
 	"runtime"
 )
 
@@ -19,6 +20,8 @@ const Program = "dummyapp"
 // later; this could thus be a build from any of a range of commits.
 var VersionString = "0.0.2-barebuild"
 var BuildTime string
+
+const ENV_LOCATION = "LOCATION"
 
 // Pull the version derivation from whatever variables go into the makeup out
 // into a function so that we can log it at startup.
@@ -34,4 +37,19 @@ func Version(w io.Writer) {
 	}
 }
 
-const ENV_LOCATION = "LOCATION"
+type LogPair struct {
+	Key, Value string
+}
+
+func LogPairs() []LogPair {
+	pairs := make([]LogPair, 0, 4)
+	pairs = append(pairs, LogPair{"version", CurrentVersion()})
+	pairs = append(pairs, LogPair{"golang_runtime", runtime.Version()})
+	if BuildTime != "" {
+		pairs = append(pairs, LogPair{"build_time", BuildTime})
+	}
+	if t := os.Getenv(ENV_LOCATION); t != "" {
+		pairs = append(pairs, LogPair{"location", t})
+	}
+	return pairs
+}
