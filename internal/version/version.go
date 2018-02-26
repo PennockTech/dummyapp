@@ -18,7 +18,7 @@ const Program = "dummyapp"
 // 'x.y.z'; if you see 'x.y.z-barebuild' then it's a hint that the version
 // number is merely whatever was in source, not authoritatively stamped in
 // later; this could thus be a build from any of a range of commits.
-var VersionString = "0.0.2-barebuild"
+var VersionString = "0.0.4-barebuild"
 var BuildTime string
 
 const ENV_LOCATION = "LOCATION"

@@ -31,6 +31,8 @@ to Heroku.
   `Dockerfile`, which copies files made in the earlier stages.  This is the
   "product" and is what is pushed out.
 
+---
+
 ## Setup
 
 We create a Heroku app, enable Go language metrics manually (because using
@@ -116,3 +118,26 @@ All are automated Docker Hub builds as public images from public GitHub repos.
 The `golang` image is from the `docker-library` GitHub organization, while the
 others are from GitHub repos which have names matching the Docker Hub repo
 names.
+
+---
+
+## Build Tricks
+
+#### Use an HTTP proxy during build, and switch the base image:
+
+Create:
+
+```sh
+DOCKER_http_proxy=http://192.0.2.1:3128/ DOCKER_RUNTIME_BASE_IMAGE=alpine \
+  make build-image`
+```
+
+Run:
+
+```sh
+docker run --entrypoint=/bin/sh -it --rm ${imageid}
+```
+
+Note that because we default to Heroku bug-compatibility, we have to override
+`ENTRYPOINT`, so when using Alpine you'll have to force it back.  Or change
+the `build/Dockerfile`.

@@ -3,8 +3,13 @@
 # creator.  Many parameters can be overriden with Docker build-args.
 
 # Each ARG goes out of scope immediately after a FROM line, so repeat
-# in each stage where needed.  If changing these, then check at the end
-# of the file where we apply labels to the final image.
+# in each stage where needed.  Be careful here.
+# The default value does _not_ need to be repeated, but *only* for ARGs
+# which are declared before the first FROM.
+# Also, "FROM instructions support variables that are declared by any ARG
+# instructions that occur before the first FROM"
+# So pre-declare them *all*.
+#
 # If each stage were FROM the previous stage, we could just LABEL in the
 # stage which needs the ARG and it would carry across; but because we
 # use `FROM scratch`, we lose all that.
@@ -18,15 +23,25 @@ ARG BUILDER_GOLANG_VERSION=1.10
 ARG BUILDER_VARIANT=""
 ARG BUILDER_IMAGE_BASE="golang"
 ARG BUILDER_IMAGE="${BUILDER_IMAGE_BASE}:${BUILDER_GOLANG_VERSION}${BUILDER_VARIANT}"
+
+# These are all documented inline below, where actually used
+ARG BUILDER_INSERT_MAKE_TARGETS=""
+ARG GO_PARENTDIR="/"
+ARG POETRY_DIR=/poetry
+ARG POETRY_IMAGE="philpennock/poetry"
+ARG PORT="8080"
+ARG RUNTIME_BASE_IMAGE="scratch"
+
+# ========================8< New Stage: Builder >8========================
 FROM ${BUILDER_IMAGE} AS builder
 
 # This is used to have Docker's invocation of make do extra steps before
 # the build; it is normally empty.
-ARG BUILDER_INSERT_MAKE_TARGETS=""
+ARG BUILDER_INSERT_MAKE_TARGETS
 # This is used when the build image has $GOPATH as somewhere other than /go
 # and should then be, for builds as user "ci" in ~ci/go: /home/ci/
 # (assuming normal modern Unix homedir conventions).
-ARG GO_PARENTDIR="/"
+ARG GO_PARENTDIR
 
 # Our build-context should be a the repo itself.
 #
@@ -45,22 +60,26 @@ RUN make -w \
 	show-versions banner-start-build \
 	indocker-build-go
 
+# =====================8< New Stage: Poetry Image >8======================
+# Work-around for being unable to specify an ARG as `COPY --from=` source.
+# Per @tonistiigi in
+#   <https://github.com/moby/moby/issues/34482#issuecomment-332298635>
+# The rationale for the restriction makes sense: want to know the complete
+# list of dependencies before pulling the images, and everything other than
+# FROM which interpolates, interpolates ENV+ARG, not ARG-only.  Rather than
+# add more variance, just pull the image.
+
+ARG POETRY_IMAGE
+FROM ${POETRY_IMAGE} AS poetry
+
 # ======================8< New Stage: Final Image >8======================
 
-ARG RUNTIME_BASE_IMAGE="scratch"
+ARG RUNTIME_BASE_IMAGE
 FROM ${RUNTIME_BASE_IMAGE}
-ARG RUNTIME_BASE_IMAGE="scratch"
-ARG PORT="8080"
-ARG GO_PARENTDIR="/"
-
-# Warning: changing this doesn't currently affect the build, only what's
-# put into the image label.  Unfortunately, COPY --from does not interpolate
-# variables for the source image name.
-ARG POETRY_IMAGE=philpennock/poetry
-#
-ARG POETRY_DIR=/poetry
-
-EXPOSE ${PORT}
+ARG RUNTIME_BASE_IMAGE
+ARG PORT
+ARG GO_PARENTDIR
+ARG POETRY_DIR
 
 # When adding the storage layers, add the rarest-changing one first, so that
 # content-addressing might better support layer reuse.
@@ -80,39 +99,37 @@ CMD ["-log.json"]
 
 # The program itself
 COPY --from=builder ${GO_PARENTDIR}dummyapp /
+# And the data files
+COPY --from=poetry / ${POETRY_DIR}/
+
+# Let the poetry be overriden at run-time if the Container hosting environment
+# supports Volumes.  Note that Heroku does not, per:
+#   <https://devcenter.heroku.com/articles/container-registry-and-runtime>
+#
+# Specifying this after the COPY should default the volume contents to
+# be those we've pre-populated.
+VOLUME ${POETRY_DIR}
+
+EXPOSE ${PORT}
 
 # Expose environment variables to the app, which accepts these as
 # defaults.
 ENV PORT=${PORT}
 ENV POETRY_DIR=${POETRY_DIR}
 
-# And the data-files, which might normally be assumed to vary often
-#want: COPY --from=${POETRY_IMAGE} /* ${POETRY_DIR}/
-# Okay, what we really want is conditional directives in the Dockerfile, so we
-# can do "if POETRY_IMAGE is defined, then copy from it and set this env var".
-# But alas, the ARG does not interpolate in --from (checked Docker 18.02.0-ce).
-##> invalid from flag value ${POETRY_IMAGE}: invalid reference format: repository name must be lowercase
-#
-COPY --from=philpennock/poetry /* ${POETRY_DIR}/
-
-# Let it be overriden at run-time if the Container hosting environment
-# supports Volumes.  Note that Heroku does not, per
-# <https://devcenter.heroku.com/articles/container-registry-and-runtime>
-#
-# Specifying this after the COPY should default the volume contents to
-# be those we've pre-populated.
-VOLUME ${POETRY_DIR}
-
 # These are replicated ARGs for labelling into the final image
 # Layers introduced by LABEL coalesce into one.
-ARG BUILDER_GOLANG_VERSION=1.10
-ARG BUILDER_VARIANT=""
-ARG BUILDER_IMAGE_BASE="golang"
-ARG BUILDER_IMAGE="${BUILDER_IMAGE_BASE}:${BUILDER_GOLANG_VERSION}${BUILDER_VARIANT}"
-ARG BUILDER_INSERT_MAKE_TARGETS=""
+ARG BUILDER_GOLANG_VERSION
+ARG BUILDER_VARIANT
+ARG BUILDER_IMAGE_BASE
+ARG BUILDER_IMAGE
+ARG BUILDER_INSERT_MAKE_TARGETS
+ARG POETRY_IMAGE
+# These are only for the labels and not repeats:
 ARG APP_VERSION="<unknown>"
 ARG DEP_VERSION="<unknown>"
 ARG GO_BUILD_TAGS="<unknown>"
+#
 LABEL maintainer="noc+di@pennock-tech.com"
 LABEL tech.pennock.name="dummyapp"
 LABEL tech.pennock.builder.image="${BUILDER_IMAGE}"

@@ -40,9 +40,15 @@ DIND_CACHE_FILE ?=
 DOCKER_MUTABLE_GO_TAGS ?=build/.docker-go-tags
 
 # Support for overriding the Docker ARGs from the Make command-line.
-# Any variable DOCKER_FOO to top Make becomes arg FOO for Docker
+# Any variable DOCKER_FOO to top Make becomes arg FOO for Docker.
+# Docker also exposes some ARGs by default, "Predefined ARGs" at
+# <https://docs.docker.com/engine/reference/builder/#predefined-args>
+# so list them explicitly.  Break the available args out into a variable
+# so that print-AVAILABLE_DOCKER_ARGS is usable.
 EXTRA_DOCKER_BUILD_ARGS ?=
-DERIVED_BUILD_ARGS=$(foreach arg,$(shell sed -En 's/^ARG  *([^=]*).*/\1/p' < $(DOCKERFILE) | sort -u),$(if $(DOCKER_${arg}),--build-arg "${arg}=$(DOCKER_${arg})" ,))
+AVAILABLE_DOCKER_ARGS:=$(shell sed -En 's/^ARG  *([^=]*).*/\1/p' < $(DOCKERFILE) | sort -u) \
+	HTTP_PROXY http_proxy HTTPS_PROXY https_proxy FTP_PROXY ftp_proxy NO_PROXY no_proxy
+DERIVED_BUILD_ARGS=$(foreach arg,$(AVAILABLE_DOCKER_ARGS),$(if $(DOCKER_${arg}),--build-arg "${arg}=$(DOCKER_${arg})" ,))
 
 # When invoked within Docker, pull in any Go tags which were stashed pre-Docker
 ifdef DOCKER_BUILD
