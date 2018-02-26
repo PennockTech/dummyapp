@@ -18,6 +18,19 @@ Circle CI, which creates a from-scratch Docker image (using a multi-stage
 Dockerfile) and deploys it to both Docker Hub and, for master branch,
 to Heroku.
 
+## Terminology
+
+* *DinD*: Docker-in-Docker
+* *Controller Image*: the image launched by Circle CI to handle the steps from
+  `.circleci/config.yml`; this is not invoked _by_ `docker build`, but is the
+  image where a shell command of `docker build` will be run, via make.
+  The Controller Image is not specified outside of the `.circleci/` directory.
+* *Builder Image*: the multi-stage `Dockerfile` creates two images; the first
+  is the Builder Image and has a userland, normal tools, a compiler and more.
+* *Deploy Image*: the much smaller image created later in the multi-stage
+  `Dockerfile`, which copies files made in the earlier stages.  This is the
+  "product" and is what is pushed out.
+
 ## Setup
 
 We create a Heroku app, enable Go language metrics manually (because using
@@ -85,15 +98,21 @@ multiple Circle CI orgs (each with their own billing?).
 
 ### Build Dependencies
 
-* We're using a `domainr/ci` image for building, simply because it's Go with a
-  few tools added; we could work without it, but would need to install `dep`.
+* We're using a `domainr/ci` image for building in Circle, simply because it's
+  Go with a few tools added; we could work without it, but would need to
+  install `dep`.  This is for the Controller Image only.  
   <a href="https://github.com/domainr/ci">GitHub</a>,
   <a href="https://hub.docker.com/r/domainr/ci/">Docker Hub</a>.
 * We merge in contents from a data image; at the size we're at, it's silly,
   but that's necessarily true for larger data sets.  I'm using
-  `philpennock/poetry` which is just a couple of Rudyard Kipling poems.
+  `philpennock/poetry` which is just a couple of Rudyard Kipling poems.  
   <a href="https://github.com/philpennock/poetry">GitHub</a>,
   <a href="https://hub.docker.com/r/philpennock/poetry/">Docker Hub</a>.
+* A Docker-official `golang` image, for the Builder Image.  
+  <a href="https://github.com/docker-library/golang/">GitHub</a>,
+  <a href="https://hub.docker.com/_/golang/">Docker Hub</a>.
 
-Both are automated Docker Hub builds as public images from public GitHub
-repos, of matching names.
+All are automated Docker Hub builds as public images from public GitHub repos.
+The `golang` image is from the `docker-library` GitHub organization, while the
+others are from GitHub repos which have names matching the Docker Hub repo
+names.

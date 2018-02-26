@@ -5,6 +5,9 @@
 # Each ARG goes out of scope immediately after a FROM line, so repeat
 # in each stage where needed.  If changing these, then check at the end
 # of the file where we apply labels to the final image.
+# If each stage were FROM the previous stage, we could just LABEL in the
+# stage which needs the ARG and it would carry across; but because we
+# use `FROM scratch`, we lose all that.
 
 # First, we build; we make it easy to just change the version of Go, but
 # you can use BUILDER_IMAGE to just use a completely different builder.
@@ -44,7 +47,6 @@ RUN make -w \
 
 # ======================8< New Stage: Final Image >8======================
 
-# If changing this, be sure to update the label too
 ARG RUNTIME_BASE_IMAGE="scratch"
 FROM ${RUNTIME_BASE_IMAGE}
 ARG RUNTIME_BASE_IMAGE="scratch"
@@ -55,6 +57,8 @@ ARG GO_PARENTDIR="/"
 # put into the image label.  Unfortunately, COPY --from does not interpolate
 # variables for the source image name.
 ARG POETRY_IMAGE=philpennock/poetry
+#
+ARG POETRY_DIR=/poetry
 
 EXPOSE ${PORT}
 
@@ -77,15 +81,27 @@ CMD ["-log.json"]
 # The program itself
 COPY --from=builder ${GO_PARENTDIR}dummyapp /
 
+# Expose environment variables to the app, which accepts these as
+# defaults.
 ENV PORT=${PORT}
+ENV POETRY_DIR=${POETRY_DIR}
 
 # And the data-files, which might normally be assumed to vary often
-#want: COPY --from=${POETRY_IMAGE} /* /poetry/
+#want: COPY --from=${POETRY_IMAGE} /* ${POETRY_DIR}/
 # Okay, what we really want is conditional directives in the Dockerfile, so we
 # can do "if POETRY_IMAGE is defined, then copy from it and set this env var".
-COPY --from=philpennock/poetry /* /poetry/
+# But alas, the ARG does not interpolate in --from (checked Docker 18.02.0-ce).
+##> invalid from flag value ${POETRY_IMAGE}: invalid reference format: repository name must be lowercase
+#
+COPY --from=philpennock/poetry /* ${POETRY_DIR}/
 
-ENV POETRY_DIR=/poetry
+# Let it be overriden at run-time if the Container hosting environment
+# supports Volumes.  Note that Heroku does not, per
+# <https://devcenter.heroku.com/articles/container-registry-and-runtime>
+#
+# Specifying this after the COPY should default the volume contents to
+# be those we've pre-populated.
+VOLUME ${POETRY_DIR}
 
 # These are replicated ARGs for labelling into the final image
 # Layers introduced by LABEL coalesce into one.
@@ -108,6 +124,7 @@ LABEL tech.pennock.versions.go="${BUILDER_GOLANG_VERSION}"
 LABEL tech.pennock.versions.dep="${DEP_VERSION}"
 LABEL tech.pennock.gobuildtags="${GO_BUILD_TAGS}"
 LABEL tech.pennock.data.poetryimage="${POETRY_IMAGE}"
+LABEL tech.pennock.volumes.poetry="${POETRY_DIR}"
 # If we build dep into our own image, we'd tag that in the base.
 #
 # The value from `docker inspect <image> | .[0].Created` field is "image
@@ -116,3 +133,9 @@ LABEL tech.pennock.data.poetryimage="${POETRY_IMAGE}"
 # zeroed timestamp and show up as "48 years ago" and the same jq invocation
 # shows that's what's stamped in them.
 # So we don't try to reproduce that timestamp in our LABELs.
+#
+# Arguably, we should also avoid repeating the VOLUME specifiers, but the
+# volumes are keyed by path, not purpose; our label is keyed by purpose.
+# But then, if the paths are so unclear that the purpose isn't obvious,
+# then perhaps that should be fixed?  After all, we run isolated and can
+# put what we want, where we want.

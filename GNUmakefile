@@ -260,7 +260,7 @@ endif
 endif
 
 .INTERMEDIATE: check-run-env
-check-env:
+check-run-env:
 	@true
 #ifndef SOME_NEEDED_TOKEN
 #	$(error SOME_NEEDED_TOKEN is undefined)
@@ -317,7 +317,8 @@ help:
 	@echo "  indocker-build-go  intended for use within Docker containers"
 	@echo ""
 	@echo "  push-image         push image to Docker Hub"
-	@echo "  heroku-deploy      build in Docker for heroku and run"
+	@echo "  heroku-deploy      build in Docker for heroku and push directly"
+	@echo "                     (skipping any CI system normally used)"
 	@echo ""
 	@echo "  caching-build-image for build-systems, caching intermediates"
 	@echo "  persist-build-image for build-systems"
