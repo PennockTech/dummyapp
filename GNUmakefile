@@ -139,7 +139,7 @@ push-image:
 .PHONY: indocker-build-go
 indocker-build-go: prebuild-sanity-check $(GO_PARENTDIR)$(BINNAME)
 
-$(GO_PARENTDIR)$(BINNAME):
+$(GO_PARENTDIR)$(BINNAME): | prebuild-sanity-check
 	cd $(CTXPROJDIR) && \
 		CGO_ENABLED=0 GOOS=$(DOCKER_GOOS) \
 		$(GO_CMD) build \
@@ -169,6 +169,8 @@ $(GO_PARENTDIR)$(BINNAME):
 # TARGET FOR: build-systems
 .PHONY: caching-build-image
 caching-build-image: step-caching-restore build-image step-caching-persist
+build-image: | step-caching-restore
+step-caching-persist: | step-caching-restore build-image
 
 .INTERMEDIATE: step-caching-restore
 step-caching-restore:
@@ -189,6 +191,7 @@ step-caching-persist:
 # TARGET FOR: build-systems
 .PHONY: persist-build-image
 persist-build-image: build-image step-build-image-persist
+step-build-image-persist: | build-image
 
 .INTERMEDIATE: step-build-image-persist
 step-build-image-persist:
@@ -214,6 +217,7 @@ LOCALDOCKER_ENVS += -e LOCATION="local-docker on $(shell hostname -s)"
 
 .PHONY: helpful-default
 helpful-default: short-help native
+native: | short-help
 
 .PHONY: localdocker-run
 localdocker-run: check-run-env
@@ -232,10 +236,10 @@ build-run: check-run-env build-image localdocker-run
 native-run: check-run-env native
 	./$(BINNAME)
 
-.PHONY: native
-native: setup $(BINNAME)
+.INTERMEDIATE: native
+native: $(BINNAME)
 
-$(BINNAME): $(SOURCES) GNUmakefile
+$(BINNAME): setup $(SOURCES) GNUmakefile
 	$(GO_CMD) build -o $@ -tags '$(BUILD_TAGS)' -ldflags '$(GO_LDFLAGS)' -v
 
 .INTERMEDIATE: heroku-check
@@ -245,6 +249,8 @@ heroku-check:
 
 .PHONY: heroku-deploy
 heroku-deploy: heroku-check build-image step-heroku-deploy
+build-image: | heroku-check
+step-heroku-deploy: | heroku-check build-image
 
 .PHONY: step-heroku-deploy
 step-heroku-deploy:
@@ -279,7 +285,7 @@ check-run-env:
 # > A tag name must be valid ASCII and may contain lowercase and uppercase
 # > letters, digits, underscores, periods and dashes. A tag name may not start
 # > with a period or a dash and may contain a maximum of 128 characters.
-prebuild-sanity-check:
+prebuild-sanity-check: | setup
 	printf "%s" "$(DOCKER_TAG)" | grep -qE '^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$$' # prebuild-sanity-check DOCKER_TAG
 
 # Call this in CI builds before starting the build, so that we have a report
@@ -344,7 +350,7 @@ banner-%:
 # This rule comes from a comment on
 #   <http://blog.jgc.org/2015/04/the-one-line-you-should-add-to-every.html>
 # where the commenter provided the shell meta-character-safe version.
-.PHONY: print-%
+.INTERMEDIATE: print-%
 print-%: ; @echo '$(subst ','\'',$*=$($*))'
 # Keep this at the end of the file, because that print-% line tends to mess up
 # syntax highlighting.
