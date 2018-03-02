@@ -27,6 +27,7 @@ ARG BUILDER_IMAGE="${BUILDER_IMAGE_BASE}:${BUILDER_GOLANG_VERSION}${BUILDER_VARI
 # These are all documented inline below, where actually used
 ARG BUILDER_INSERT_MAKE_TARGETS=""
 ARG GO_PARENTDIR="/"
+ARG NO_DEP_FETCH=""
 ARG POETRY_DIR=/poetry
 ARG POETRY_IMAGE="philpennock/poetry"
 ARG PORT="8080"
@@ -42,20 +43,24 @@ ARG BUILDER_INSERT_MAKE_TARGETS
 # and should then be, for builds as user "ci" in ~ci/go: /home/ci/
 # (assuming normal modern Unix homedir conventions).
 ARG GO_PARENTDIR
+# This is used to prevent having dep inside Docker try to fetch dependencies
+# if it thinks things are out of date:
+ARG NO_DEP_FETCH
 
 # Our build-context should be a the repo itself.
 #
 # We exclude the vendor area from the git repo, but expect it to have
 # been populated before Docker is called.
-# If you want dependencies fetched and built within Docker instead of in
-# the parent, then remove 'setup' from the dependencies for make's 'build-image'
-# and pass it in via BUILDER_INSERT_MAKE_TARGETS.
 #
+# If you want dependencies fetched and built within Docker instead of in
+# the parent, then build with DEP_FETCH_IN_DOCKER=t.
+
 ADD . ${GO_PARENTDIR}go/src/go.pennock.tech/dummyapp
 WORKDIR ${GO_PARENTDIR}go/src/go.pennock.tech/dummyapp
 ENV DOCKER_BUILD=true
 RUN make -w \
 	GO_PARENTDIR=${GO_PARENTDIR} \
+	NO_DEP_FETCH=${NO_DEP_FETCH} \
 	${BUILDER_INSERT_MAKE_TARGETS} \
 	show-versions banner-start-build \
 	indocker-build-go

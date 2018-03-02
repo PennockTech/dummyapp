@@ -11,8 +11,11 @@ defaults: &defaults
     - image: domainr/ci:swan
       environment:
         DOCKER_BUILDER_IMAGE: "domainr/ci:swan"
-        DOCKER_BUILDER_GOLANG_VERSION: "1.10"
+        # Rather than hard-code DOCKER_BUILDER_GOLANG_VERSION we can extract
+        # it automatically:
+        EXTRACT_GO_VERSION_FROM_LABEL: "com.domainr.versions.go"
         GO_PARENTDIR: "/home/domainr/"
+        #
         DOCKERPROJ: "pennocktech/dummyapp"
         BUILD_TAGS: "heroku"
         BUILDER_SYSTEM: "circleci"

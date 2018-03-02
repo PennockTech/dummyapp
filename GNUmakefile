@@ -1,8 +1,32 @@
 # This is a GNU makefile
+#
+# This is also insanely over-engineered and probably buggy, but is designed
+# to let most things just happen automatically while still letting lots of things
+# be overriden from the command-line or environment.
+#
+# I believe in automatic tagging of binaries and images with information
+# derived from the git repository status, and so forth.  I also play with different
+# CI images, set up in various different ways, and want to easily switch with just
+# a variable to adapt.
+#
+# But the core of this, the bit actually needed for building the image, is that
+# "build/Dockerfile" # calls "make indocker-build-go" (passing some other vars
+# back at the same time, and showing some diagnostic info too).  The
+# "indocker-build-go" target invokes "go build"; that could be done directly
+# in the Dockerfile, but there's lots of other things we set too.
+#
+# The Dockerfile is multi-stage, using a builder to make the final tiny image.
+# The CI configuration (try .circleci/config.yml) should take care of setting
+# up Docker-in-Docker build, to be able to make the Docker image.
+#
+# IF YOU HAVE FORKED THIS REPO: all the main vars to set to adapt should be
+# in the block beginning "GH_PROJECT", just a few lines below here.
 
 .DEFAULT_GOAL := helpful-default
 .PHONY: default
 default: helpful-default
+
+PRINTABLE_VARS:=
 
 GH_PROJECT    := PennockTech/dummyapp
 DOCKERPROJ     = pennocktech/dummyapp
@@ -16,10 +40,16 @@ CTXPROJDIR    := $(GO_PARENTDIR)go/src/$(PROJGO)
 # If building with an image where you are user 'ci' then perhaps: /home/ci/
 GO_PARENTDIR  ?= /
 
+PRINTABLE_VARS+= GH_PROJECT DOCKERPROJ HEROKUAPP PROJGO HEROKU_CR BINNAME CTXPROJDIR GO_PARENTDIR
+
 # http://blog.jgc.org/2011/07/gnu-make-recursive-wildcard-function.html
 rwildcard=$(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst *,%,$2),$d))
 # mine:
 rwildnovendor=$(filter-out vendor/%,$(call rwildcard,$1,$2))
+
+NOOP:=
+SPACE:=$(NOOP) $(NOOP)
+COMMA:=,
 
 LOCAL_OS    :=$(shell uname)
 DOCKER_GOOS ?=linux
@@ -28,6 +58,14 @@ GO_LDFLAGS  :=
 SOURCES      =$(call rwildnovendor,,*.go)
 DEP_VERSION  =$(shell dep version | sed -n 's/^ *version *: *//p')
 DOCKERFILE  :=./build/Dockerfile
+DEP_FETCH_IN_DOCKER?=
+ifdef GOPATH
+FIRST_GOPATH:=$(firstword $(subst :,$(SPACE),$(GOPATH)))
+else
+FIRST_GOPATH:=$(HOME)/go
+endif
+
+PRINTABLE_VARS+= LOCAL_OS DOCKER_GOOS GO_CMD GO_LDFLAGS SOURCES DEP_VERSION DOCKERFILE DEP_FETCH_IN_DOCKER FIRST_GOPATH
 
 # This is used for a Docker-in-Docker build approach, where caches are
 # optionally loaded in from a cache file; see 'caching-image' target
@@ -36,8 +74,29 @@ DIND_CACHE_FILE ?=
 # This needs to be within the context passed to the Docker builder, so the
 # filesystem can't really be read-only, but it's a bit weird to have to modify
 # the source tree on a per-build basis without sub-dirs.  So we support
-# moving this and making the parent dir.
+# moving this and making the parent dir read-only (in theory, not confirmed).
 DOCKER_MUTABLE_GO_TAGS ?=build/.docker-go-tags
+
+PRINTABLE_VARS+= DIND_CACHE_FILE DOCKER_MUTABLE_GO_TAGS
+
+# This DOCKER_BUILDER_GOLANG_VERSION target default will fetch Docker images,
+# so should only be expanded if absolutely necessary, and then only once.
+# Basically: don't set EXTRACT_GO_VERSION_FROM_LABEL unless you really mean it.
+ifdef DOCKER_BUILDER_IMAGE
+ifdef EXTRACT_GO_VERSION_FROM_LABEL
+DOCKER_BUILDER_GOLANG_VERSION := $(shell \
+				 docker pull $(DOCKER_BUILDER_IMAGE) >/dev/null && \
+				 docker inspect -f '{{index .Config.Labels "$(EXTRACT_GO_VERSION_FROM_LABEL)"}}' $(DOCKER_BUILDER_IMAGE) \
+	)
+endif
+endif
+
+ifdef DEP_FETCH_IN_DOCKER
+DOCKER_BUILDER_INSERT_MAKE_TARGETS+= setup
+else
+DOCKER_NO_DEP_FETCH?=true
+build-image: setup
+endif
 
 # Support for overriding the Docker ARGs from the Make command-line.
 # Any variable DOCKER_FOO to top Make becomes arg FOO for Docker.
@@ -50,6 +109,9 @@ AVAILABLE_DOCKER_ARGS:=$(shell sed -En 's/^ARG  *([^=]*).*/\1/p' < $(DOCKERFILE)
 	HTTP_PROXY http_proxy HTTPS_PROXY https_proxy FTP_PROXY ftp_proxy NO_PROXY no_proxy
 DERIVED_BUILD_ARGS=$(foreach arg,$(AVAILABLE_DOCKER_ARGS),$(if $(DOCKER_${arg}),--build-arg "${arg}=$(DOCKER_${arg})" ,))
 
+PRINTABLE_VARS+= EXTRACT_GO_VERSION_FROM_LABEL EXTRA_DOCKER_BUILD_ARGS $(foreach arg,$(AVAILABLE_DOCKER_ARGS),DOCKER_${arg})
+PRINTABLE_VARS+= DERIVED_BUILD_ARGS
+
 # When invoked within Docker, pull in any Go tags which were stashed pre-Docker
 ifdef DOCKER_BUILD
 ifneq "$(wildcard $(DOCKER_MUTABLE_GO_TAGS) )" ""
@@ -60,10 +122,12 @@ endif
 else
 BUILD_TAGS ?=
 endif
+PRINTABLE_VARS+= BUILD_TAGS
 
 ifndef REPO_VERSION
 REPO_VERSION :=$(shell ./build/version)
 endif
+PRINTABLE_VARS+= REPO_VERSION
 # POSIX mandates date(1) has `-u` (is the only mandated flag) and mandates
 # +format for output per format.
 #
@@ -74,10 +138,7 @@ endif
 BUILD_TIMESTAMP :=$(shell date -u "+%Y-%m-%d %H:%M:%SZ")
 GO_LDFLAGS+= -X "$(PROJGO)/internal/version.VersionString=$(REPO_VERSION)" \
 	     -X "$(PROJGO)/internal/version.BuildTime=$(BUILD_TIMESTAMP)"
-
-NOOP:=
-SPACE:=$(NOOP) $(NOOP)
-COMMA:=,
+PRINTABLE_VARS+= BUILD_TIMESTAMP GO_LDFLAGS
 
 ifndef DOCKER_TAG_SUFFIX
 ifneq "$(BUILD_TAGS)" ""
@@ -96,6 +157,7 @@ endif
 # The docker tags have limits on what is allowed; I've added the
 # `prebuild-sanity-check` target for this, and any other such checks before
 # build proceeds.
+PRINTABLE_VARS+= DOCKER_TAG_SUFFIX DOCKER_TAG
 
 DERIVED_EXTRA_ARGS :=
 ifdef MAKE_DOCKER_TARGET
@@ -104,16 +166,41 @@ endif
 
 MAKE_EXTRA_DOCKER_BUILD_ARGS :=$(DERIVED_BUILD_ARGS)$(DERIVED_EXTRA_ARGS) $(EXTRA_DOCKER_BUILD_ARGS) -t $(DOCKERPROJ):$(DOCKER_TAG)
 
+
+GO_PACKAGES := $(shell $(GO_CMD) list -f '{{join .Imports "\n"}}' ./... | \
+	sort -u | \
+	egrep '^[^/]+\..+/' | \
+	sed 's:^$(PROJGO)/vendor/::' | \
+	grep -v '^$(PROJGO)')
+VENDORED_GO_PACKAGES := $(foreach p,$(GO_PACKAGES),vendor/$p)
+PRINTABLE_VARS+= GO_PACKAGES VENDORED_GO_PACKAGES NO_DEP_BUILD NO_DEP_FETCH NO_DEP
+
+ifdef NO_DEP
+NO_DEP_FETCH?=$(NO_DEP)
+NO_DEP_BUILD?=$(NO_DEP)
+endif
+
 .INTERMEDIATE: setup
-setup: have-dep Gopkg.lock
-	test -n "$(NODEP)" || dep ensure -v
+setup:
+
+ifndef NO_DEP_FETCH
+$(VENDORED_GO_PACKAGES): Gopkg.lock Gopkg.toml have-dep
+	dep ensure -v
+
+setup: $(VENDORED_GO_PACKAGES)
+endif
+
+ifndef NO_DEP_BUILD
+$(BINNAME) $(GO_PARENTDIR)$(BINNAME) : $(VENDORED_GO_PACKAGES)
+endif
 
 # build-image boils down to:
 #   docker build -t $(DOCKERPROJ) .
 # but with a lot of knobs and dials; we make both the untagged implicit-latest
 # but also a named versioning tag.
+#
 .PHONY: build-image
-build-image: setup prebuild-sanity-check
+build-image: prebuild-sanity-check
 ifneq "$(BUILD_TAGS)" ""
 	mkdir -pv "$(shell dirname "$(DOCKER_MUTABLE_GO_TAGS)")"
 	printf > $(DOCKER_MUTABLE_GO_TAGS) "%s\n" "$(BUILD_TAGS)"
@@ -169,8 +256,16 @@ $(GO_PARENTDIR)$(BINNAME): | prebuild-sanity-check
 # TARGET FOR: build-systems
 .PHONY: caching-build-image
 caching-build-image: step-caching-restore build-image step-caching-persist
-build-image: | step-caching-restore
+#OND:#build-image: | step-caching-restore
 step-caching-persist: | step-caching-restore build-image
+
+# The OND: tag means "I suck at Make", I can't figure out a way to declare that
+# "If this thing over here is put in the list of hard dependencies by
+# something, then it must come before me, but I don't require it for myself".
+# "Order, No Dependency".
+# Just using `foo: bar baz bat` is not sufficient to force bar to happen before
+# baz or bat, with no other constraits upon bar,baz,bat they happened out of
+# order.  This is horrendous.
 
 .INTERMEDIATE: step-caching-restore
 step-caching-restore:
@@ -205,6 +300,7 @@ step-build-image-persist:
 LOCALDOCKER_ENVS :=
 LOCALDOCKER_ARGS := -log.json
 LOCALDOCKER_FLAGS := --rm --read-only -P
+PRINTABLE_VARS+= LOCALDOCKER_ENVS LOCALDOCKER_ARGS LOCALDOCKER_FLAGS
 
 # Do manipulation here based on needed env-vars; eg:
 #ifeq "$(DATABASE_URL)" ""
@@ -217,7 +313,7 @@ LOCALDOCKER_ENVS += -e LOCATION="local-docker on $(shell hostname -s)"
 
 .PHONY: helpful-default
 helpful-default: short-help native
-native: | short-help
+#OND:#native: | short-help
 
 .PHONY: localdocker-run
 localdocker-run: check-run-env
@@ -249,7 +345,7 @@ heroku-check:
 
 .PHONY: heroku-deploy
 heroku-deploy: heroku-check build-image step-heroku-deploy
-build-image: | heroku-check
+#OND:#build-image: | heroku-check
 step-heroku-deploy: | heroku-check build-image
 
 .PHONY: step-heroku-deploy
@@ -264,10 +360,13 @@ ifeq ($(LOCAL_OS), Darwin)
 ifneq "$(wildcard /usr/local/Homebrew )" ""
 	brew install dep
 else
-	go get -u github.com/golang/dep/cmd/dep
+	$(GO_CMD) get -u -d github.com/golang/dep/cmd/dep
+	# get the git information etc stamped into the binary for version to display when prompted
+	hos=$$($(GO_CMD) env GOHOSTOS) har=$$($(GO_CMD) env GOHOSTARCH); cd $(FIRST_GOPATH)/src/github.com/golang/dep && env DEP_BUILD_PLATFORMS=$${hos} DEP_BUILD_ARCHS=$${har} ./hack/build-all.bash && install release/dep-$${hos}-$${har} $(FIRST_GOPATH)/bin/dep
 endif
 else
-	go get -u github.com/golang/dep/cmd/dep
+	$(GO_CMD) get -u -d github.com/golang/dep/cmd/dep
+	hos=$$($(GO_CMD) env GOHOSTOS) har=$$($(GO_CMD) env GOHOSTARCH); cd $(FIRST_GOPATH)/src/github.com/golang/dep && env DEP_BUILD_PLATFORMS=$${hos} DEP_BUILD_ARCHS=$${har} ./hack/build-all.bash && install release/dep-$${hos}-$${har} $(FIRST_GOPATH)/bin/dep
 endif
 endif
 
@@ -302,16 +401,16 @@ show-versions:
 	@date
 	@uname -a
 	@git version
-	@go version
+	@$(GO_CMD) version
 	@printf "This repo: "; build/version
 	if dep version; then dep status; fi
 	@echo "Git repo status of repo & dependencies:"
-	@for DIR in $$(go list -f '{{range .Deps}}{{.}}{{"\n"}}{{end}}' | egrep '^[^/.]+\..*/' | xargs go list -f '{{.Dir}}' | xargs -I {} git -C {} rev-parse --show-toplevel | sort -u); do echo $$DIR; git -C $$DIR describe --always --dirty --tags ; done
+	@for DIR in $$($(GO_CMD) list -f '{{range .Deps}}{{.}}{{"\n"}}{{end}}' | egrep '^[^/.]+\..*/' | xargs $(GO_CMD) list -f '{{.Dir}}' | xargs -I {} git -C {} rev-parse --show-toplevel | sort -u); do echo $$DIR; git -C $$DIR describe --always --dirty --tags ; done
 	@echo "# Done with show-versions"
 
 .PHONY: clean
 clean:
-	go clean
+	$(GO_CMD) clean
 
 .PHONY: short-help
 short-help:
@@ -336,12 +435,30 @@ help:
 	@echo "  persist-build-image for build-systems"
 	@echo ""
 	@echo "  print-FOO          show the value of the FOO Make variable"
+	@echo "  list-vars          list most make variables of interest"
+	@echo "  show-vars          show key=value for the variables in list-vars"
 	@echo "  show-versions      summary of version numbers of interest"
 
 .INTERMEDIATE: banner-%
 banner-%:
 	@echo ""
 	@echo "*** $* ***"
+
+.PHONY: show-bare-dot-variables
+show-bare-dot-variables:
+	@env - PATH="$(PATH)" GOPATH="$(GOPATH)" $(MAKE) -rR print-.VARIABLES
+
+.PHONY: list-vars
+list-vars:
+	@echo >&2 '# This list is incomplete but a rough guide'
+	@echo >&2 '# Use print-FOO to see any one variable, here or unlisted'
+	@echo >&2 '# Use show-vars to see values for all listed here'
+	@echo >&2 '# Try too: make show-bare-dot-variables'
+	@printf '%s\n' $(sort $(PRINTABLE_VARS))
+
+# {{{
+# Keep these at the end of the file, because that print-% line tends to mess up
+# syntax highlighting.
 
 # Where BSD lets you `make -V VARNAME` to print the value of a variable instead
 # of building a target, this gives GNU make a target `print-VARNAME` to print
@@ -352,5 +469,9 @@ banner-%:
 # where the commenter provided the shell meta-character-safe version.
 .INTERMEDIATE: print-%
 print-%: ; @echo '$(subst ','\'',$*=$($*))'
-# Keep this at the end of the file, because that print-% line tends to mess up
-# syntax highlighting.
+
+.PHONY: show-vars
+show-vars:
+	@$(foreach name,$(sort $(PRINTABLE_VARS)),printf '%s=%s\n' '$(name)' '$(subst ','"'"',$($(name)))';)
+
+# }}}
