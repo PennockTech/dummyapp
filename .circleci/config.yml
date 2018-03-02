@@ -11,7 +11,7 @@ defaults: &defaults
     - image: domainr/ci:swan
       environment:
         DOCKER_BUILDER_IMAGE: "domainr/ci:swan"
-        DOCKER_BUILDER_GOLANG_VERSION: "1.9.4"
+        DOCKER_BUILDER_GOLANG_VERSION: "1.10"
         GO_PARENTDIR: "/home/domainr/"
         DOCKERPROJ: "pennocktech/dummyapp"
         BUILD_TAGS: "heroku"

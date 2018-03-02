@@ -102,7 +102,7 @@ multiple Circle CI orgs (each with their own billing?).
 
 * We're using a `domainr/ci` image for building in Circle, simply because it's
   Go with a few tools added; we could work without it, but would need to
-  install `dep`.  This is for the Controller Image only.  
+  install `dep`.
   <a href="https://github.com/domainr/ci">GitHub</a>,
   <a href="https://hub.docker.com/r/domainr/ci/">Docker Hub</a>.
 * We merge in contents from a data image; at the size we're at, it's silly,
@@ -113,6 +113,7 @@ multiple Circle CI orgs (each with their own billing?).
 * A Docker-official `golang` image, for the Builder Image.  
   <a href="https://github.com/docker-library/golang/">GitHub</a>,
   <a href="https://hub.docker.com/_/golang/">Docker Hub</a>.
+  + But in Circle, we override this to be the same as the Controller Image.
 
 All are automated Docker Hub builds as public images from public GitHub repos.
 The `golang` image is from the `docker-library` GitHub organization, while the
