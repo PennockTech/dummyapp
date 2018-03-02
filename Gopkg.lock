@@ -11,7 +11,7 @@
   branch = "master"
   name = "github.com/heroku/x"
   packages = ["hmetrics"]
-  revision = "705849e307dd75c91728463dea5bfd08ef493e64"
+  revision = "d4f6dc770b787f823deb774deda70b46eee16d9a"
 
 [[projects]]
   name = "github.com/sirupsen/logrus"
@@ -26,7 +26,7 @@
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "49796115aa4b964c318aad4f3084fdb41e9aa067"
+  revision = "91a49db82a88618983a78a06c1cbd4e00ab749ab"
 
 [[projects]]
   branch = "master"
@@ -35,7 +35,7 @@
     "unix",
     "windows"
   ]
-  revision = "88d2dcc510266da9f7f8c7f34e1940716cab5f5c"
+  revision = "f6cff0780e542efa0c8e864dc8fa522808f6a598"
 
 [solve-meta]
   analyzer-name = "dep"

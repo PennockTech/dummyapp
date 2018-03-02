@@ -285,8 +285,9 @@ func realMain() int {
 	statsManager, err := stats.Start(logger.WithField("component", "stats"))
 	if err != nil {
 		logger.WithError(err).Error("failed to start stats manager")
+	} else {
+		defer statsManager.Stop()
 	}
-	defer statsManager.Stop()
 
 	_ = setupPoetry(logger) // we don't care if it succeeds or not, let it log
 
