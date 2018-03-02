@@ -104,8 +104,8 @@ endif
 
 MAKE_EXTRA_DOCKER_BUILD_ARGS :=$(DERIVED_BUILD_ARGS)$(DERIVED_EXTRA_ARGS) $(EXTRA_DOCKER_BUILD_ARGS) -t $(DOCKERPROJ):$(DOCKER_TAG)
 
-.PHONY: setup
-setup: have-dep
+.INTERMEDIATE: setup
+setup: have-dep Gopkg.lock
 	test -n "$(NODEP)" || dep ensure -v
 
 # build-image boils down to:
