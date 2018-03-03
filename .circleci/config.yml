@@ -119,7 +119,7 @@ jobs:
 
       - run: make -n step-heroku-deploy > /tmp/persist/heroku-deploy.sh
 
-      - run: make -n push-image > /tmp/persist/docker-hub-deploy.sh
+      - run: (make -n push-image; make RETAG=heroku -n push-image-retag ;) > /tmp/persist/docker-hub-deploy.sh
 
       # Run tests here
 

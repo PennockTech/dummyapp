@@ -223,6 +223,13 @@ endif
 push-image:
 	docker push $(DOCKERPROJ):$(DOCKER_TAG)
 
+PRINTABLE_VARS+= RETAG
+.PHONY: push-image-retag
+push-image-retag:
+	@if ! test -n "$(RETAG)"; then echo >&2 "Missing: RETAG, don't know what to retag $(DOCKERPROJ):$(DOCKER_TAG) as"; exit 1; fi
+	docker tag $(DOCKERPROJ):$(DOCKER_TAG) $(DOCKERPROJ):$(RETAG)
+	docker push $(DOCKERPROJ):$(RETAG)
+
 .PHONY: indocker-build-go
 indocker-build-go: prebuild-sanity-check $(GO_PARENTDIR)$(BINNAME)
 
