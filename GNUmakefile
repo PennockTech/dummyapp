@@ -346,7 +346,9 @@ heroku-check:
 .PHONY: heroku-deploy
 heroku-deploy: heroku-check build-image step-heroku-deploy
 #OND:#build-image: | heroku-check
-step-heroku-deploy: | heroku-check build-image
+# In addition, adding the order dependency here means that when CI invokes
+# `make -n step-heroku-deploy`, we print far too much.
+#step-heroku-deploy: | heroku-check build-image
 
 .PHONY: step-heroku-deploy
 step-heroku-deploy:
