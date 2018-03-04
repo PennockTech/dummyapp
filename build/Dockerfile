@@ -29,7 +29,6 @@ ARG BUILDER_IMAGE_BASE="golang"
 ARG BUILDER_IMAGE="${BUILDER_IMAGE_BASE}:${BUILDER_GOLANG_VERSION}${BUILDER_VARIANT}"
 
 # These are all documented inline below, where actually used
-ARG BUILDER_INSERT_MAKE_TARGETS=""
 ARG GO_PARENTDIR="/"
 ARG NO_DEP_FETCH=""
 ARG POETRY_DIR=/poetry
@@ -40,9 +39,6 @@ ARG RUNTIME_BASE_IMAGE="scratch"
 # ========================8< New Stage: Builder >8========================
 FROM ${BUILDER_IMAGE} AS builder
 
-# This is used to have Docker's invocation of make do extra steps before
-# the build; it is normally empty.
-ARG BUILDER_INSERT_MAKE_TARGETS
 # This is used when the build image has $GOPATH as somewhere other than /go
 # and should then be, for builds as user "ci" in ~ci/go: /home/ci/
 # (assuming normal modern Unix homedir conventions).
@@ -127,7 +123,6 @@ ARG BUILDER_GOLANG_VERSION
 ARG BUILDER_VARIANT
 ARG BUILDER_IMAGE_BASE
 ARG BUILDER_IMAGE
-ARG BUILDER_INSERT_MAKE_TARGETS
 ARG POETRY_IMAGE
 # These are only for the labels and not repeats:
 ARG APP_VERSION="<unknown>"
@@ -137,7 +132,6 @@ ARG GO_BUILD_TAGS="<unknown>"
 LABEL maintainer="noc+di@pennock-tech.com"
 LABEL tech.pennock.name="dummyapp"
 LABEL tech.pennock.builder.image="${BUILDER_IMAGE}"
-LABEL tech.pennock.builder.insertedmake="${BUILDER_INSERT_MAKE_TARGETS}"
 LABEL tech.pennock.baseimage="${RUNTIME_BASE_IMAGE}"
 LABEL tech.pennock.portlist="${PORT}"
 LABEL tech.pennock.version="${APP_VERSION}"

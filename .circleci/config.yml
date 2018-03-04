@@ -115,6 +115,7 @@ jobs:
           environment:
             PERSIST_DIR: *persist_directory
             VERBOSE: "2"
+            RETAG: "heroku"
 
       # Run tests here
 

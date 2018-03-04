@@ -24,6 +24,19 @@ else
   rm -f -- "$DOCKER_MUTABLE_GO_TAGS"
 fi
 
+if [ -n "${EXTRACT_GO_VERSION_FROM_LABEL:-}" ]; then
+  if [ -n "${DOCKER_BUILDER_IMAGE:-}" ]; then
+    # This variable is used; it's picked up by the iteration for ARG FOO
+    # below, but shellcheck misses that.
+    # shellcheck disable=SC2034
+    DOCKER_BUILDER_GOLANG_VERSION="$(docker_builder_golang_version "$DOCKER_BUILDER_IMAGE" "$EXTRACT_GO_VERSION_FROM_LABEL")"
+  else
+    warn "need DOCKER_BUILDER_IMAGE to use EXTRACT_GO_VERSION_FROM_LABEL='$EXTRACT_GO_VERSION_FROM_LABEL'"
+  fi
+elif [ -n "${DOCKER_BUILDER_IMAGE:-}" ]; then
+  warn "we have DOCKER_BUILDER_IMAGE='$DOCKER_BUILDER_IMAGE' but no EXTRACT_GO_VERSION_FROM_LABEL"
+fi
+
 declare -a extra_args
 
 # Used to stop after a certain FROM stage (target) in the Dockerfile.

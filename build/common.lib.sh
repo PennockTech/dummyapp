@@ -179,7 +179,6 @@ have_cmd() {
   return 1
 }
 
-# XXX old-make-file: call with: $DOCKER_BUILDER_IMAGE $EXTRACT_GO_VERSION_FROM_LABEL
 docker_builder_golang_version() {
   local image="${1:?missing docker builder image}"
   local label_with_go_version="${2:?missing docker LABEL which has Go version info}"
