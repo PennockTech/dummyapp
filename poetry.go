@@ -16,10 +16,23 @@ import (
 	"go.pennock.tech/dummyapp/internal/logging"
 )
 
-const ENV_POETRY_DIR = "POETRY_DIR"
-const DEFAULT_POETRY_DIR = "poetry"
+// envPoetryDir is the name of the environment variable which provides a
+// default location for looking for poetry; there's no point making it
+// exported, since we reference it at init time.  defaultPoetryDir is the
+// default in the absence of the environment variable, similarly referenced
+// at init time.
+const (
+	envPoetryDir     = "POETRY_DIR"
+	defaultPoetryDir = "poetry"
 
-const REGISTER_POEM_POETRY = false
+	// oops_REGISTER_POEM_POETRY is a hack, so that I can leave in the code
+	// showing the structure of what I was trying to do, far too late at night,
+	// but disable it at compile time.  I should revisit this and clean it up.
+	//
+	// This is not golint-approved naming, but what I'm doing here is wrong and
+	// I want it to stand out as compile-time disabling of code.
+	oops_REGISTER_POEM_POETRY = false
+)
 
 var (
 	// ErrNoPoemGiven indicates poetry handler not given a poem name when one
@@ -32,12 +45,12 @@ var poetryOptions struct {
 }
 
 func init() {
-	defaultDir := os.Getenv(ENV_POETRY_DIR)
+	defaultDir := os.Getenv(envPoetryDir)
 	var suffix string
 	if defaultDir == "" {
-		defaultDir = DEFAULT_POETRY_DIR
+		defaultDir = defaultPoetryDir
 	} else {
-		suffix = " (environ overrides '" + DEFAULT_POETRY_DIR + "')"
+		suffix = " (environ overrides '" + defaultPoetryDir + "')"
 	}
 	flag.StringVar(&poetryOptions.dir, "poetry.dir", defaultDir, "poetry serving directory"+suffix)
 }
@@ -62,7 +75,7 @@ func (dir poetryDir) Open(name string) (http.File, error) {
 	// we'll just blindly accept that we're returning plainly formatted lists
 	// which contains entries which might be rejected.
 
-	if REGISTER_POEM_POETRY {
+	if oops_REGISTER_POEM_POETRY {
 		// We return our own index, at /poetry/, to handle stripping out leading-dots.
 		// So error if someone tries to access the FS root.
 		if name == "" || name == "/" {
@@ -108,7 +121,7 @@ func setupPoetryNolog() error {
 		return syscall.ENOTDIR
 	}
 
-	if REGISTER_POEM_POETRY {
+	if oops_REGISTER_POEM_POETRY {
 		addFirstLevelPageItem(dummyAppFirstLevelPage{
 			name:      "poem/",
 			handler:   http.StripPrefix("/poem", http.FileServer(poetryDir(poetryOptions.dir))),

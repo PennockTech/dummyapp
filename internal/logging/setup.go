@@ -41,9 +41,37 @@ func Enabled() bool {
 	return logOpts.json || !logOpts.noLocal
 }
 
-// Logger is an alias, so that our other code has less need to know about the
-// actual logging library in use.
-type Logger = logrus.FieldLogger
+// -------------------------8< wrap logrus type >8-------------------------
+
+// Logger is the interface API which the rest of our code should use for logging.
+// Originally this was a type alias for logrus.FieldLogger, but we now enumerate
+// for ourselves exactly what we do rely upon, so that we have a smaller surface
+// and can drop something else in.
+type Logger interface {
+	WithField(key string, value interface{}) Logger
+	WithError(err error) Logger
+
+	Debug(args ...interface{})
+	Info(args ...interface{})
+	Warning(args ...interface{})
+	Error(args ...interface{})
+}
+
+type wrapLogrus struct {
+	*logrus.Entry
+}
+
+// WithField adds a k/v pair to the accumulated logging details.
+func (w wrapLogrus) WithField(key string, value interface{}) Logger {
+	return wrapLogrus{w.Entry.WithField(key, value)}
+}
+
+// WithError adds an error to the accumulated logging details.
+func (w wrapLogrus) WithError(err error) Logger {
+	return wrapLogrus{w.Entry.WithError(err)}
+}
+
+// -------------------------8< wrap logrus type >8-------------------------
 
 // Setup sets up logging.
 //
@@ -91,7 +119,7 @@ func Setup() Logger {
 			logOpts.syslogProto = strings.ToLower(logOpts.syslogProto)
 		default:
 			time.Sleep(time.Second)
-			l.Fatalf("unknown syslog protocol %q", logOpts.syslogProto)
+			l.WithField("protocol", logOpts.syslogProto).Fatal("unknown syslog protocol")
 		}
 		hook, err := logrus_syslog.NewSyslogHook(
 			logOpts.syslogProto,
@@ -115,5 +143,5 @@ func Setup() Logger {
 		}
 	}
 
-	return l
+	return wrapLogrus{logrus.NewEntry(l)}
 }

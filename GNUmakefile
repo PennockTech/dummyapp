@@ -136,7 +136,7 @@ PRINTABLE_VARS+= REPO_VERSION
 # the build in the container?  For now, generate as close to the build as
 # possible, ignoring env.
 BUILD_TIMESTAMP :=$(shell date -u "+%Y-%m-%d %H:%M:%SZ")
-GO_LDFLAGS+= -X "$(PROJGO)/internal/version.VersionString=$(REPO_VERSION)" \
+GO_LDFLAGS+= -X "$(PROJGO)/internal/version.versionString=$(REPO_VERSION)" \
 	     -X "$(PROJGO)/internal/version.BuildTime=$(BUILD_TIMESTAMP)"
 PRINTABLE_VARS+= BUILD_TIMESTAMP GO_LDFLAGS
 

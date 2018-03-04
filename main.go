@@ -207,7 +207,7 @@ func registerHandlersOnDefault(logger logging.Logger) {
 		}
 		if logger != nil {
 			h = LogWrapHandler(h, logger, n)
-			logger.Debugf("registering handler for page /%s", n)
+			logger.WithField("page", "/"+n).Debug("registering page handler")
 		}
 		http.Handle("/"+n, h)
 	}
@@ -252,7 +252,7 @@ func realMain() int {
 	parseFlagsSanely()
 
 	if options.showVersion {
-		version.Version(os.Stdout)
+		version.PrintTo(os.Stdout)
 		// skip the safety checks on rapid respawning
 		os.Exit(0)
 	}
@@ -305,7 +305,7 @@ func realMain() int {
 
 	err = serve()
 	if err != nil {
-		masterThreadLogger.Errorf("web server exited with error: %s", err)
+		masterThreadLogger.WithError(err).Error("web server error exited")
 		return 1
 	}
 	return 0
