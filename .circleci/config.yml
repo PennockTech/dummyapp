@@ -16,7 +16,7 @@ defaults: &defaults
         EXTRACT_GO_VERSION_FROM_LABEL: "com.domainr.versions.go"
         GO_PARENTDIR: "/home/domainr/"
         #
-        DOCKERPROJ: "pennocktech/dummyapp"
+        DOCKER_PROJECT: "pennocktech/dummyapp"
         BUILD_TAGS: "heroku"
         BUILDER_SYSTEM: "circleci"
 
@@ -60,8 +60,6 @@ references:
 
 
   # beware these are also embedded in run command-lines:
-  build_cache_path: &build_cache_path
-    /tmp/cache/docker-layers.tar
   image_persist_path: &image_persist_path
     /tmp/persist/docker-layers.tar
   persist_directory: &persist_directory
@@ -95,31 +93,28 @@ jobs:
       # as quickly be got from somewhere else.  And the OS image is _huge_, this
       # is not fast.
       #
-      # So I'm leaving the cache entries in, commented out with #C#, as an example
-      # of how this can be done; but not using it myself.
+      # Note too that caching the built image from a Dockerfile does not
+      # cache all the intermediate steps used to create the target, so there's
+      # no re-use, so not much point to it.
 
-      #C# - restore_cache:
-      #C#     keys:
-      #C#       - v1-docker-{{ .Branch }}
-      #C#     paths:
-      #C#       - *build_cache_path
-
-      #C# - run:
-      #C#     name: Build Docker builder image using Docker Layer Cache image-file
-      #C#     command: make -w DIND_CACHE_FILE=/tmp/cache/docker-layers.tar MAKE_DOCKER_TARGET=builder caching-build-image
-
-      #C# - save_cache:
-      #C#     key: v1-docker-{{ .Branch }}-{{ epoch }}
-      #C#     paths:
-      #C#       - *build_cache_path
+      # If you had something heavyweight though, then you would use a
+      # "restore_cache:", then the "fetch whatever's newer than what I have",
+      # then "save_cache" here.  Be sure to version the cache keys, and put the
+      # path in the references section above, to catch typos.
 
       - run:
           name: Build Docker image
-          command: make -w DIND_PERSIST_FILE=/tmp/persist/docker-layers.tar persist-build-image
+          command: ./build/build.with-docker.sh
+          environment:
+            DIND_PERSIST_FILE: *image_persist_path
+            VERBOSE: "2"
 
-      - run: make -n step-heroku-deploy > /tmp/persist/heroku-deploy.sh
-
-      - run: (make -n push-image; make RETAG=heroku -n push-image-retag ;) > /tmp/persist/docker-hub-deploy.sh
+      - run:
+          name: Create persisted commands for deploy steps
+          command: ./build/create-persist-commands.sh
+          environment:
+            PERSIST_DIR: *persist_directory
+            VERBOSE: "2"
 
       # Run tests here
 
@@ -181,7 +176,7 @@ jobs:
           command: docker load -i /tmp/persist/docker-layers.tar
       - run:
           name: Deploy docker image to Heroku
-          command: source /tmp/persist/heroku-deploy.sh
+          command: /tmp/persist/heroku-deploy.sh
 
   push_docker_hub:
     <<: *defaults
@@ -199,7 +194,7 @@ jobs:
           command: docker load -i /tmp/persist/docker-layers.tar
       - run:
           name: Push docker image to Docker Hub
-          command: source /tmp/persist/docker-hub-deploy.sh
+          command: /tmp/persist/docker-hub-deploy.sh
 
 
 workflows:

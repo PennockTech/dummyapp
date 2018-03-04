@@ -1,0 +1,23 @@
+; EditorConfig file per http://editorconfig.org/
+; There are plugins for various text editors to use this.
+;
+; this is the top-most applicable EditorConfig file.
+
+root = true
+
+[*]
+end_of_line = lf
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{sh,py}]
+indent_style = space
+indent_size = 2
+
+[*.go]
+indent_style = tab
+indent_size = 4
+
+[*.md]
+trim_trailing_whitespace = false

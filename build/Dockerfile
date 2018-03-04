@@ -1,3 +1,7 @@
+# Copyright © 2018 Pennock Tech, LLC.
+# All rights reserved, except as granted under license.
+# Licensed per file LICENSE.txt
+
 # Dockerfile for: dummyapp
 # This is a multi-stage Dockerfile: a builder and and then a final image
 # creator.  Many parameters can be overriden with Docker build-args.
@@ -58,12 +62,7 @@ ARG NO_DEP_FETCH
 ADD . ${GO_PARENTDIR}go/src/go.pennock.tech/dummyapp
 WORKDIR ${GO_PARENTDIR}go/src/go.pennock.tech/dummyapp
 ENV DOCKER_BUILD=true
-RUN make -w \
-	GO_PARENTDIR=${GO_PARENTDIR} \
-	NO_DEP_FETCH=${NO_DEP_FETCH} \
-	${BUILDER_INSERT_MAKE_TARGETS} \
-	show-versions banner-start-build \
-	indocker-build-go
+RUN build/build.from-within-dockerfile.sh env-GO_PARENTDIR=${GO_PARENTDIR} env-NO_DEP_FETCH=${NO_DEP_FETCH}
 
 # =====================8< New Stage: Poetry Image >8======================
 # Work-around for being unable to specify an ARG as `COPY --from=` source.
