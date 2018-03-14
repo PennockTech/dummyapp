@@ -2,6 +2,8 @@
 // All rights reserved, except as granted under license.
 // Licensed per file LICENSE.txt
 
+// +build logrus !zerolog
+
 package logging
 
 import (
@@ -38,24 +40,10 @@ func init() {
 
 // Enabled is a predicate stating if logging is enabled.
 func Enabled() bool {
-	return logOpts.json || !logOpts.noLocal
+	return !logOpts.noLocal || logOpts.syslogRemote != ""
 }
 
 // -------------------------8< wrap logrus type >8-------------------------
-
-// Logger is the interface API which the rest of our code should use for logging.
-// Originally this was a type alias for logrus.FieldLogger, but we now enumerate
-// for ourselves exactly what we do rely upon, so that we have a smaller surface
-// and can drop something else in.
-type Logger interface {
-	WithField(key string, value interface{}) Logger
-	WithError(err error) Logger
-
-	Debug(args ...interface{})
-	Info(args ...interface{})
-	Warning(args ...interface{})
-	Error(args ...interface{})
-}
 
 type wrapLogrus struct {
 	*logrus.Entry
@@ -70,6 +58,22 @@ func (w wrapLogrus) WithField(key string, value interface{}) Logger {
 func (w wrapLogrus) WithError(err error) Logger {
 	return wrapLogrus{w.Entry.WithError(err)}
 }
+
+// Debug logs at debug level.
+// It maps our reduced signature to the fuller signature of logrus.
+func (w wrapLogrus) Debug(message string) { w.Entry.Debug(message) }
+
+// Info logs at info level.
+// It maps our reduced signature to the fuller signature of logrus.
+func (w wrapLogrus) Info(message string) { w.Entry.Info(message) }
+
+// Warning logs at warning level.
+// It maps our reduced signature to the fuller signature of logrus.
+func (w wrapLogrus) Warning(message string) { w.Entry.Warning(message) }
+
+// Error logs at error level.
+// It maps our reduced signature to the fuller signature of logrus.
+func (w wrapLogrus) Error(message string) { w.Entry.Error(message) }
 
 // -------------------------8< wrap logrus type >8-------------------------
 
