@@ -35,7 +35,9 @@ type Logger interface {
 // Setup is used to setup logging.
 func Setup() Logger {
 	if Enabled() {
-		return implSetup()
+		l := implSetup()
+		l.WithField("implementation", implPackage).Info("logging library")
+		return l
 	}
 	return newNilLoggerDisablingLog()
 }

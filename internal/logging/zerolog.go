@@ -51,6 +51,9 @@ func Enabled() bool {
 	return !logOpts.noLocal || logOpts.syslogLocal || logOpts.syslogRemote != ""
 }
 
+// Used by Setup() to log which we are:
+const implPackage = "zerolog"
+
 // ------------------------8< wrap zerolog type >8-------------------------
 
 type wrapZerolog struct {

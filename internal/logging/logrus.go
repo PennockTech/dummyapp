@@ -46,6 +46,9 @@ func Enabled() bool {
 	return !logOpts.noLocal || logOpts.syslogRemote != ""
 }
 
+// Used by Setup() to log which we are:
+const implPackage = "logrus"
+
 // -------------------------8< wrap logrus type >8-------------------------
 
 type wrapLogrus struct {
