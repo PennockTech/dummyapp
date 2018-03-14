@@ -96,15 +96,8 @@ func poetryHandleFunc(w http.ResponseWriter, req *http.Request) {
 // setupPoetry should be called by the main go-routine after options have been
 // parsed.  We init various data-structions based upon the values of the options.
 func setupPoetry(logger logging.Logger) bool {
-	err := setupPoetryNolog()
-	if logger == nil {
-		if err != nil {
-			return false
-		}
-		return true
-	}
 	logger = logger.WithField("directory", poetryOptions.dir)
-	if err != nil {
+	if err := setupPoetryNolog(); err != nil {
 		logger.WithError(err).Warning("skipping poetry setup")
 		return false
 	}

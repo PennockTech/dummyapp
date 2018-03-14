@@ -11,8 +11,6 @@ import (
 )
 
 func herokuStart(logger logging.Logger) (func(), error) {
-	if logger != nil {
-		logger.Info("built without Heroku stats support")
-	}
+	logger.Info("built without Heroku stats support")
 	return nil, nil
 }

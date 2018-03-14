@@ -39,6 +39,8 @@ func init() {
 }
 
 // Enabled is a predicate stating if logging is enabled.
+// It has to be usable after flags init but _before_ implSetup, being called by
+// Setup() in core.go to decide if we should be called.
 func Enabled() bool {
 	return !logOpts.noLocal || logOpts.syslogRemote != ""
 }
@@ -75,9 +77,12 @@ func (w wrapLogrus) Warning(message string) { w.Entry.Warning(message) }
 // It maps our reduced signature to the fuller signature of logrus.
 func (w wrapLogrus) Error(message string) { w.Entry.Error(message) }
 
+// IsDisabled is always false for a logrus logger.
+func (w wrapLogrus) IsDisabled() bool { return false }
+
 // -------------------------8< wrap logrus type >8-------------------------
 
-// Setup sets up logging.
+// implSetup sets up logging and is called by Setup (usually)
 //
 // Setup should be changed to add whatever remote logging you want;
 // <https://github.com/sirupsen/logrus> lists a variety of supported hooks for
@@ -99,7 +104,7 @@ func (w wrapLogrus) Error(message string) { w.Entry.Error(message) }
 //
 // Recommend a sleep before Fatal so that if we keep dying, we don't die in a
 // fast loop and chew system resources.
-func Setup() Logger {
+func implSetup() Logger {
 	l := logrus.New()
 	lvl, err := logrus.ParseLevel(logOpts.level)
 	if err != nil {

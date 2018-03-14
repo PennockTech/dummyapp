@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-	//logrus_syslog "github.com/sirupsen/logrus/hooks/syslog"
 
 	"go.pennock.tech/dummyapp/internal/version"
 )
@@ -46,7 +45,8 @@ func init() {
 }
 
 // Enabled is a predicate stating if logging is enabled.
-// It has to be usable after flags init but _before_ setup.
+// It has to be usable after flags init but _before_ implSetup, being called by
+// Setup() in core.go to decide if we should be called.
 func Enabled() bool {
 	return !logOpts.noLocal || logOpts.syslogLocal || logOpts.syslogRemote != ""
 }
@@ -84,6 +84,11 @@ func (w wrapZerolog) Error(message string) {
 	w.Logger.Error().Msg(message)
 }
 
+// IsDisabled is always false for a zerolog logger.
+// Note that our level can be set to disabled, but in that case we return a
+// nilLogger.
+func (w wrapZerolog) IsDisabled() bool { return false }
+
 // ------------------------8< wrap zerolog type >8-------------------------
 
 func ourFatalf(spec string, args ...interface{}) {
@@ -92,7 +97,7 @@ func ourFatalf(spec string, args ...interface{}) {
 	os.Exit(1)
 }
 
-// Setup sets up logging.
+// implSetup sets up logging and is called by Setup (usually).
 //
 // If logging can't be set-up, please assume that this is fatal and abort; we
 // don't run without an audit trail going where it is supposed to go.
@@ -104,7 +109,7 @@ func ourFatalf(spec string, args ...interface{}) {
 //
 // Recommend a sleep before Fatal so that if we keep dying, we don't die in a
 // fast loop and chew system resources.
-func Setup() Logger {
+func implSetup() Logger {
 	// divert anything using stdlib log to use a logger which notes this
 	// FIXME: add this to other logger implementations too
 	setupStdlogAndDone := func(l zerolog.Logger) Logger {
@@ -134,12 +139,7 @@ func Setup() Logger {
 		ourFatalf("unable to parse logging level, %q unrecognized\n", logOpts.level)
 	}
 	if lvl == zerolog.Disabled {
-		zerolog.SetGlobalLevel(zerolog.Disabled)
-		f, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
-		if err != nil {
-			ourFatalf("unable to open system sink device: %s\n", err)
-		}
-		return setupStdlogAndDone(zerolog.New(f))
+		return newNilLoggerDisablingLog()
 	}
 
 	var expectedNormalOutput io.Writer = os.Stderr

@@ -44,9 +44,6 @@ const (
 // ErrHerokuMetricsNotEnabled just means "don't worry about it" and is non-fatal.
 var ErrHerokuMetricsNotEnabled = errors.New("heroku metrics not enabled ('$HEROKU_METRICS_URL' empty?)")
 
-// why oh why do I allow nil loggers?  As an object lesson in why you never
-// should allow nil loggers?
-
 func herokuStart(logger logging.Logger) (func(), error) {
 	// hmetrics.Report no longer knows about the environment variable trigger,
 	// that's a package variable which the onload package references, and we do
@@ -64,15 +61,9 @@ func herokuStart(logger logging.Logger) (func(), error) {
 		Fatal() bool
 	}
 
-	var errHandler func(err error) error
-
-	if logger != nil {
-		errHandler = func(err error) error {
-			logger.WithError(err).Error("heroku error callback")
-			return nil // returning non-nil terminates Heroku error logging
-		}
-	} else {
-		errHandler = func(_ error) error { return nil }
+	errHandler := func(err error) error {
+		logger.WithError(err).Error("heroku error callback")
+		return nil // returning non-nil terminates Heroku error logging
 	}
 
 	// WARNING WARNING: commit aab18502 2017-10-04 of github.com/heroku/x
@@ -83,19 +74,14 @@ func herokuStart(logger logging.Logger) (func(), error) {
 	// a lesser issue.
 
 	go func() {
-		var spawnerLogger, thisLog logging.Logger
-		if logger != nil {
-			spawnerLogger = logger.WithField("where", "spawner")
-		}
+		spawnerLogger := logger.WithField("where", "spawner")
 		var backoff time.Duration
 
 		for backoff = resetFailureBackoffTo; ; backoff *= 2 {
 			if isDeadContext(ctx) {
-				if spawnerLogger != nil {
-					spawnerLogger.
-						WithField("context_done_reason", ctx.Err()).
-						Info("context cancelled, exiting")
-				}
+				spawnerLogger.
+					WithField("context_done_reason", ctx.Err()).
+					Info("context cancelled, exiting")
 				return
 			}
 
@@ -111,11 +97,9 @@ func herokuStart(logger logging.Logger) (func(), error) {
 				backoff = maxFailureBackoff
 			}
 
-			if spawnerLogger != nil {
-				thisLog = spawnerLogger.WithField("duration_us", durMs)
-				if err != nil {
-					thisLog = thisLog.WithError(err)
-				}
+			thisLog := spawnerLogger.WithField("duration_us", durMs)
+			if err != nil {
+				thisLog = thisLog.WithError(err)
 			}
 
 			messageBase := "heroku metrics Report exited"
@@ -127,36 +111,27 @@ func herokuStart(logger logging.Logger) (func(), error) {
 				backoff = maxFailureBackoff
 				messageState = " fatally"
 				messageAgain = "(we'll try again much later)"
-				if thisLog != nil {
-					thisLog = thisLog.WithField("reporter_fatal", true)
-				}
+				thisLog = thisLog.WithField("reporter_fatal", true)
 			}
 			if isDeadContext(ctx) {
 				dead = true
 				messageAgain = "context cancelled, exiting"
-				if thisLog != nil {
-					thisLog = thisLog.WithField("context_done_reason", ctx.Err())
-				}
+				thisLog = thisLog.WithField("context_done_reason", ctx.Err())
 			}
 
 			message := messageBase + messageState + "; " + messageAgain
 			if dead {
-				if thisLog != nil {
-					thisLog.Error(message)
-				}
+				thisLog.Error(message)
 				return
-			} else if thisLog != nil {
-				thisLog.WithField("sleep_s", int64(backoff/time.Second)).Error(message)
 			}
+			thisLog.WithField("sleep_s", int64(backoff/time.Second)).Error(message)
 
 			timer := time.NewTimer(backoff)
 			select {
 			case <-ctx.Done():
-				if spawnerLogger != nil {
-					spawnerLogger.
-						WithField("context_done_reason", ctx.Err()).
-						Info("context cancelled while in delay backoff, exiting")
-				}
+				spawnerLogger.
+					WithField("context_done_reason", ctx.Err()).
+					Info("context cancelled while in delay backoff, exiting")
 				// nb: Leaks the channel, unless raced and already exited.
 				if !timer.Stop() {
 					<-timer.C
@@ -167,9 +142,7 @@ func herokuStart(logger logging.Logger) (func(), error) {
 		}
 	}()
 
-	if logger != nil {
-		logger.Info("heroku metrics exporter keepalive-loop started")
-	}
+	logger.Info("heroku metrics exporter keepalive-loop started")
 
 	return cancel, nil
 }

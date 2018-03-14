@@ -20,15 +20,7 @@ type Handle struct {
 
 // Start begins handling statistics/metrics.
 func Start(logger logging.Logger) (*Handle, error) {
-	var (
-		cancel func()
-		err    error
-	)
-	if logger != nil {
-		cancel, err = herokuStart(logger.WithField("stats", "heroku"))
-	} else {
-		cancel, err = herokuStart(nil)
-	}
+	cancel, err := herokuStart(logger.WithField("stats", "heroku"))
 	if err != nil {
 		return nil, err
 	}

@@ -92,7 +92,7 @@ const (
 func loggerFromContext(ctx context.Context) logging.Logger {
 	l := ctx.Value(dummyappLoggerKey)
 	if l == nil {
-		return nil
+		return logging.NilLogger()
 	}
 	return l.(logging.Logger)
 }
@@ -132,7 +132,7 @@ func send404(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	io.WriteString(w, "page not found")
 	l := loggerFromContext(req.Context())
-	if l != nil {
+	if !l.IsDisabled() {
 		l.WithField("http_error", 404).WithField("URL", req.URL).Info("sent 404")
 	}
 }
@@ -205,14 +205,15 @@ func registerHandlersOnDefault(logger logging.Logger) {
 		if h == nil {
 			h = http.HandlerFunc(f)
 		}
-		if logger != nil {
+		// missing the IsDisabled is harmless aside from some extra cycles on each call
+		if !logger.IsDisabled() {
 			h = LogWrapHandler(h, logger, n)
 			logger.WithField("page", "/"+n).Debug("registering page handler")
 		}
 		http.Handle("/"+n, h)
 	}
 	h := http.HandlerFunc(rootHandle)
-	if logger != nil {
+	if !logger.IsDisabled() {
 		h = LogWrapHandler(h, logger, "/")
 	}
 	http.Handle("/", h)
@@ -226,24 +227,22 @@ func setupWebserver(logger logging.Logger) func() error {
 	}
 	listener, err := net.Listen("tcp", server.Addr)
 	if err != nil {
-		if logger != nil {
+		if logger.IsDisabled() {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+		} else {
 			logger.
 				WithField("listen", server.Addr).
 				WithError(err).
 				Error("listening failed")
-		} else {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
 		}
 		return nil
 	}
 
 	return func() error {
-		if logger != nil {
-			logger.
-				WithField("listen", server.Addr).
-				WithField("bound", listener.Addr().String()).
-				Info("accepting connections")
-		}
+		logger.
+			WithField("listen", server.Addr).
+			WithField("bound", listener.Addr().String()).
+			Info("accepting connections")
 		return server.Serve(listener)
 	}
 }
@@ -255,22 +254,6 @@ func realMain() int {
 		version.PrintTo(os.Stdout)
 		// skip the safety checks on rapid respawning
 		os.Exit(0)
-	}
-
-	// This is all wrong and bug-prone.
-	// Should seriously reconsider permitting a nil logger.  It's Just Wrong.
-	if !logging.Enabled() {
-		statsManager, err := stats.Start(nil)
-		if err != nil {
-			defer statsManager.Stop()
-		}
-		_ = setupPoetry(nil)
-		err = setupWebserver(nil)()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "webserver failed: %s\n", err)
-			return 1
-		}
-		return 0
 	}
 
 	logger := logging.Setup()
