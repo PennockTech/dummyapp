@@ -23,7 +23,7 @@ to Heroku.
 * *DinD*: Docker-in-Docker
 * *Controller Image*: the image launched by Circle CI to handle the steps from
   `.circleci/config.yml`; this is not invoked _by_ `docker build`, but is the
-  image where a shell command of `docker build` will be run, via make.
+  image where a shell command of `docker build` will be run
   The Controller Image is not specified outside of the `.circleci/` directory.
 * *Builder Image*: the multi-stage `Dockerfile` creates two images; the first
   is the Builder Image and has a userland, normal tools, a compiler and more.
@@ -52,7 +52,12 @@ git config --local --unset remote.heroku.fetch
 git config --local remote.heroku.pushurl no_push_because_we_deploy_docker_images
 git config --local --bool remote.heroku.skipFetchAll true
 
-make BUILD_TAGS=heroku heroku-deploy
+# At the time this was done:
+#   make BUILD_TAGS=heroku heroku-deploy
+# If done today:
+env BUILD_TAGS=heroku ./build/build.with-docker.sh
+# or equivalently:
+./build/build.with-docker.sh env-BUILD_TAGS=heroku
 ```
 
 Created repo on Docker Hub through web UI: `pennocktech/dummyapp`
@@ -130,7 +135,7 @@ Create:
 
 ```sh
 DOCKER_http_proxy=http://192.0.2.1:3128/ DOCKER_RUNTIME_BASE_IMAGE=alpine \
-  make build-image`
+  ./build/build.with-docker.sh`
 ```
 
 Run:

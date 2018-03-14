@@ -11,7 +11,16 @@
   branch = "master"
   name = "github.com/heroku/x"
   packages = ["hmetrics"]
-  revision = "d4f6dc770b787f823deb774deda70b46eee16d9a"
+  revision = "10acf83061b8fc4ba6d401be68798459b8ceccdb"
+
+[[projects]]
+  name = "github.com/rs/zerolog"
+  packages = [
+    ".",
+    "internal/json"
+  ]
+  revision = "56a970de510213e50dbaa39ad73ac07c9ec75606"
+  version = "v1.5.0"
 
 [[projects]]
   name = "github.com/sirupsen/logrus"
@@ -19,14 +28,14 @@
     ".",
     "hooks/syslog"
   ]
-  revision = "d682213848ed68c0a260ca37d6dd5ace8423f5ba"
-  version = "v1.0.4"
+  revision = "c155da19408a8799da419ed3eeb0cb5db0ad5dbc"
+  version = "v1.0.5"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "91a49db82a88618983a78a06c1cbd4e00ab749ab"
+  revision = "c4a91bd4f524f10d064139674cf55852e055ad01"
 
 [[projects]]
   branch = "master"
@@ -35,11 +44,11 @@
     "unix",
     "windows"
   ]
-  revision = "f6cff0780e542efa0c8e864dc8fa522808f6a598"
+  revision = "8c0ece68c28377f4c326d85b94f8df0dace46f80"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7a6bcbfd0c3e04e379ee14a853d4f044e16f7a8d09e03946f82142b55baf2cfb"
+  inputs-digest = "5c38e023f772677b93e67489fd19b7b65d6749abd5d06774b95b0b774e1a4f18"
   solver-name = "gps-cdcl"
   solver-version = 1

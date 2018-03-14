@@ -5,18 +5,31 @@
 # we don't want to be lost, should be included here in 'required'.
 #
 # Note that dep still doesn't handle OS-specific dependencies, so
-# if we run into those before dep gains support, then use
-# `make BUILDER_INSERT_MAKE_TARGETS=setup build-image`
+# if we run into those before dep gains support, then add support
+# for calling dep to build/build.from-within-dockerfile.sh
 #
-required = ["github.com/heroku/x/hmetrics"]
+required = [
+  "github.com/heroku/x/hmetrics",
+  "github.com/sirupsen/logrus",
+  "github.com/rs/zerolog",
+  ]
 
+# nb: AFAICT, dep might be failing to handle a leading 'v' in the git tag name
+# when it comes to the ~ operator and falling back to equality of the part
+# after the 'v'?  I should look into this properly and submit a bug report /
+# patch.  (dep v0.4.1)
 [[constraint]]
   name = "github.com/sirupsen/logrus"
-  version = "1.0.4"
+  version = "~1.0.5"
+
+[[constraint]]
+  name = "github.com/rs/zerolog"
+  version = "^1.5.0"
 
 [[constraint]]
   branch = "master"
   name = "github.com/heroku/x"
+  # No tags, alas!
 
 [prune]
   go-tests = true
