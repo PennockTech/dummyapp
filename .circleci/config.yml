@@ -17,7 +17,7 @@ defaults: &defaults
         GO_PARENTDIR: "/home/domainr/"
         #
         DOCKER_PROJECT: "pennocktech/dummyapp"
-        BUILD_TAGS: "heroku"
+        BUILD_TAGS: "heroku zerolog"
         BUILDER_SYSTEM: "circleci"
 
 # <https://circleci.com/blog/how-to-build-a-docker-image-on-circleci-2-0/>
