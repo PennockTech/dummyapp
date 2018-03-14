@@ -8,6 +8,7 @@ package logging
 
 import (
 	"flag"
+	stdlog "log"
 	"log/syslog"
 	"os"
 	"strings"
@@ -152,5 +153,7 @@ func implSetup() Logger {
 		}
 	}
 
+	stdlog.SetFlags(0)
+	stdlog.SetOutput(l.WithField("via", "stdlog").Writer())
 	return wrapLogrus{logrus.NewEntry(l)}
 }

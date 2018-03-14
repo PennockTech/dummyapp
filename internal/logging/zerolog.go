@@ -111,7 +111,10 @@ func ourFatalf(spec string, args ...interface{}) {
 // fast loop and chew system resources.
 func implSetup() Logger {
 	// divert anything using stdlib log to use a logger which notes this
-	// FIXME: add this to other logger implementations too
+	// NB: in zerolog, these are logged without a level.  I can't see a sane
+	// way to assocate a level with the writer, such that they can be easily
+	// discarded.  Sure, we can `.Str("level", "info")` but that has no
+	// filtering.
 	setupStdlogAndDone := func(l zerolog.Logger) Logger {
 		stdlog.SetFlags(0)
 		stdlog.SetOutput(l.With().Str("via", "stdlog").Logger())

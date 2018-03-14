@@ -89,6 +89,10 @@ const (
 	dummyappLoggerKey dummyappReqContextKey = iota
 )
 
+// note that zerolog also has its own facility for registering with the context
+// and TODO we should consider how to integrate that too, for other
+// zerolog-using libs, without requiring extra functionality of other libs.
+// Probably a new interface method with a default implementation?
 func loggerFromContext(ctx context.Context) logging.Logger {
 	l := ctx.Value(dummyappLoggerKey)
 	if l == nil {
@@ -281,6 +285,8 @@ func realMain() int {
 	if serve == nil {
 		return 1
 	}
+
+	demonstrateStdlibLogger()
 
 	// Maybe show using waitgroups and shutdown channels, but that's not really
 	// the point of this demo and I've already done too much on this side,
