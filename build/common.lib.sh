@@ -40,7 +40,9 @@ unset param full key value
 : "${BIN_NAME:=dummyapp}"
 
 # Should we be defaulting to heroku here, or leave that only to CircleCI?
-: "${BUILD_TAGS:=heroku}"
+# NB: we use `=` not `:=` deliberately, to let an empty string disable
+# our default of enabling heroku.
+: "${BUILD_TAGS=heroku}"
 
 # ============================8< EDIT THESE >8============================
 

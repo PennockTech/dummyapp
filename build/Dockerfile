@@ -30,6 +30,7 @@ ARG BUILDER_IMAGE="${BUILDER_IMAGE_BASE}:${BUILDER_GOLANG_VERSION}${BUILDER_VARI
 
 # These are all documented inline below, where actually used
 ARG GO_PARENTDIR="/"
+ARG GO_BUILD_TAGS=""
 ARG NO_DEP_FETCH=""
 ARG POETRY_DIR=/poetry
 ARG POETRY_IMAGE="philpennock/poetry"
@@ -46,6 +47,12 @@ ARG GO_PARENTDIR
 # This is used to prevent having dep inside Docker try to fetch dependencies
 # if it thinks things are out of date:
 ARG NO_DEP_FETCH
+# This is used to propagate Golang build tags from the outside, through Docker,
+# into the actual Go build used.  Note that the actual build, per normal, uses
+# BUILD_TAGS not GO_BUILD_TAGS, so we rename back.  It's only renamed to have
+# the GO_ prefix when invoking Docker, and that's to make it clear on inspection
+# that it relates to the Go build, not the Docker build.
+ARG GO_BUILD_TAGS
 
 # Our build-context should be a the repo itself.
 #
@@ -58,7 +65,7 @@ ARG NO_DEP_FETCH
 ADD . ${GO_PARENTDIR}go/src/go.pennock.tech/dummyapp
 WORKDIR ${GO_PARENTDIR}go/src/go.pennock.tech/dummyapp
 ENV DOCKER_BUILD=true
-RUN build/build.from-within-dockerfile.sh env-GO_PARENTDIR=${GO_PARENTDIR} env-NO_DEP_FETCH=${NO_DEP_FETCH}
+RUN build/build.from-within-dockerfile.sh env-GO_PARENTDIR="${GO_PARENTDIR}" env-NO_DEP_FETCH="${NO_DEP_FETCH}" env-BUILD_TAGS="${GO_BUILD_TAGS}"
 
 # =====================8< New Stage: Poetry Image >8======================
 # Work-around for being unable to specify an ARG as `COPY --from=` source.
@@ -124,10 +131,10 @@ ARG BUILDER_VARIANT
 ARG BUILDER_IMAGE_BASE
 ARG BUILDER_IMAGE
 ARG POETRY_IMAGE
+ARG GO_BUILD_TAGS
 # These are only for the labels and not repeats:
 ARG APP_VERSION="<unknown>"
 ARG DEP_VERSION="<unknown>"
-ARG GO_BUILD_TAGS="<unknown>"
 #
 LABEL maintainer="noc+di@pennock-tech.com"
 LABEL tech.pennock.name="dummyapp"
