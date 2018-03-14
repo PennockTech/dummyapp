@@ -34,3 +34,14 @@ required = [
 [prune]
   go-tests = true
   unused-packages = true
+
+# https://elements.heroku.com/buildpacks/heroku/heroku-buildpack-go
+# Need at least value of `go list -e .` for root-package.
+#
+# Note: we don't use this in our normal flows, because we use Docker builds
+# outside Heroku, but we add the data here to support a Heroku build flow.
+[metadata.heroku]
+  root-package = "go.pennock.tech/dummyapp"
+  # go-version: accept their most-recent supported version
+  # install: we're happy with `go install .`
+  # ensure: don't set false, we do want `dep ensure` run
