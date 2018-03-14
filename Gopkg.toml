@@ -9,7 +9,7 @@
 # for calling dep to build/build.from-within-dockerfile.sh
 #
 required = [
-  "github.com/heroku/x/hmetrics",
+  "go.pennock.tech/hmetrics",
   "github.com/sirupsen/logrus",
   "github.com/rs/zerolog",
   ]
@@ -27,9 +27,8 @@ required = [
   version = "^1.5.0"
 
 [[constraint]]
-  branch = "master"
-  name = "github.com/heroku/x"
-  # No tags, alas!
+  name = "go.pennock.tech/hmetrics"
+  version = "~0.1.0"
 
 [prune]
   go-tests = true
