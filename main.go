@@ -257,11 +257,14 @@ func realMain() int {
 		os.Exit(0)
 	}
 
+	// This is all wrong and bug-prone.
+	// Should seriously reconsider permitting a nil logger.  It's Just Wrong.
 	if !logging.Enabled() {
 		statsManager, err := stats.Start(nil)
 		if err != nil {
 			defer statsManager.Stop()
 		}
+		_ = setupPoetry(nil)
 		err = setupWebserver(nil)()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "webserver failed: %s\n", err)
