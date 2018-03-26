@@ -34,14 +34,14 @@
 [[projects]]
   name = "go.pennock.tech/hmetrics"
   packages = ["."]
-  revision = "17d1cb6d6786998009c77bbb88e446d1f6c423b0"
-  version = "v0.1.0"
+  revision = "d4945128e3d1a06e52836ee7620b25416437e3c1"
+  version = "v0.1.2"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "c4a91bd4f524f10d064139674cf55852e055ad01"
+  revision = "88942b9c40a4c9d203b82b3731787b672d6e809b"
 
 [[projects]]
   branch = "master"
@@ -50,7 +50,7 @@
     "unix",
     "windows"
   ]
-  revision = "bcaab34b51dab6217ab117c5469d74b2ac1b1ab2"
+  revision = "91ee8cde435411ca3f1cd365e8f20131aed4d0a1"
 
 [solve-meta]
   analyzer-name = "dep"

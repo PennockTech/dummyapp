@@ -47,6 +47,7 @@ is built; for Heroku, it ensures that we compile their metrics push code.
 heroku apps:create pt-dummy-app
 heroku labs:enable go-language-metrics
 heroku labs:enable runtime-heroku-metrics
+heroku labs:enable runtime-empty-entrypoint
 
 git config --local --unset remote.heroku.fetch
 git config --local remote.heroku.pushurl no_push_because_we_deploy_docker_images
@@ -69,6 +70,10 @@ one `COPY --from` line in our `Dockerfile` to edit to remove that.
 
 Created Circle CI project; pushed on branch circle, aborted first build on
 master.
+
+NB: the `runtime-empty-entrypoint` lab came into existence after I first
+created this project, but is what lets us skip setting the `ENTRYPOINT` in the
+`Dockerfile` and just have array-form `RUN` work correctly.
 
 
 ### Authentication
@@ -119,6 +124,8 @@ multiple Circle CI orgs (each with their own billing?).
   <a href="https://github.com/docker-library/golang/">GitHub</a>,
   <a href="https://hub.docker.com/_/golang/">Docker Hub</a>.
   + But in Circle, we override this to be the same as the Controller Image.
+* The other dependencies are Golang libraries, which we pull in via Golang
+  dependency mechanisms: `dep`, else `go get`.
 
 All are automated Docker Hub builds as public images from public GitHub repos.
 The `golang` image is from the `docker-library` GitHub organization, while the
@@ -141,9 +148,12 @@ DOCKER_http_proxy=http://192.0.2.1:3128/ DOCKER_RUNTIME_BASE_IMAGE=alpine \
 Run:
 
 ```sh
-docker run --entrypoint=/bin/sh -it --rm ${imageid}
+docker run -it --rm ${imageid} /bin/sh
 ```
 
-Note that because we default to Heroku bug-compatibility, we have to override
-`ENTRYPOINT`, so when using Alpine you'll have to force it back.  Or change
-the `build/Dockerfile`.
+Before v0.1.0 we defaulted to Heroku bug-compatibility, so had to use
+`ENTRYPOINT` to get around an attempt to invoke `/bin/sh` for our command,
+even when given in array form.  From v0.1.0 onwards, we require that Heroku
+be told `heroku labs:enable runtime-empty-entrypoint` which isn't quite right,
+but does at least let us use an array to invoke a command where there is no
+`/bin/sh` inside the container.

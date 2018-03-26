@@ -101,8 +101,8 @@ COPY build/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 #
 # Heroku ignores that array-form CMD is supposed to be shell-less and tries to
 # use shell anyway, so the only way around it is to use entrypoint instead.
-ENTRYPOINT ["/dummyapp"]
-CMD ["-log.json"]
+#ENTRYPOINT ["/dummyapp"]
+CMD ["/dummyapp", "-log.json"]
 
 # The program itself
 COPY --from=builder ${GO_PARENTDIR}dummyapp /

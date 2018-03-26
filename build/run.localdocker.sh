@@ -17,6 +17,7 @@ declare -a envs args dflags
 
 dflags=(--rm --read-only --tty --publish-all)
 
+args=("/${BIN_NAME:?}")
 args+=(-log.json)
 envs+=(LOCATION)
 

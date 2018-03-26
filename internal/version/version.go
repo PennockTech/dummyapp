@@ -26,7 +26,7 @@ const Program = "dummyapp"
 // 'x.y.z'; if you see 'x.y.z-barebuild' then it's a hint that the version
 // number is merely whatever was in source, not authoritatively stamped in
 // later; this could thus be a build from any of a range of commits.
-var versionString = "0.0.8-barebuild"
+var versionString = "0.1.0-barebuild"
 
 // BuildTime is potentially set at link-time.
 // It should be used to record the timestamp (date+time) of the build.
