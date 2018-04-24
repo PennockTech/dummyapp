@@ -41,8 +41,8 @@ unset param full key value
 
 # Should we be defaulting to heroku here, or leave that only to CircleCI?
 # NB: we use `=` not `:=` deliberately, to let an empty string disable
-# our default of enabling heroku.
-: "${BUILD_TAGS=heroku}"
+# our default of enabling heroku & zerolog.
+: "${BUILD_TAGS=heroku zerolog}"
 
 # ============================8< EDIT THESE >8============================
 
