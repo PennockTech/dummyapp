@@ -121,6 +121,7 @@ func LogWrapHandler(h http.Handler, logger logging.Logger, name string) http.Han
 				logger.WithField("panic", x).Error("run-time panic")
 			}
 		}()
+		req = req.WithContext(context.WithValue(req.Context(), dummyappLoggerKey, logger))
 		m := httpsnoop.CaptureMetrics(h, w, req)
 		// Writing non-JSON logs, `m.Duration` is string-formatted so we get
 		// a pretty value with a suffix, probably µs.  With JSON, we just get
