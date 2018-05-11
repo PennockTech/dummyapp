@@ -6,6 +6,7 @@
 # Licensed per file LICENSE.txt
 
 # Preamble: {{{
+pt_lib_entry_opts="$-"
 set -eu
 #
 # Local convention: any line starting `: "${VAR_NAME:=` should be parseable by
@@ -239,6 +240,8 @@ show_versions() {
   echo "# Show-versions: {{{"
   date
   uname -a
+  id -a
+  pwd
   "$GIT_CMD" version
   "$GO_CMD" version
   real_version="$("$BUILD_DIR/version")"
@@ -321,5 +324,10 @@ have_all_deps() {
 }
 
 cd "$REPO_DIR"
+
+for r in e u; do
+  case $pt_lib_entry_opts in *${r}*) : ;; *) set +${r} ;; esac
+done
+unset pt_lib_entry_opts r
 
 # vim: set foldmethod=marker :

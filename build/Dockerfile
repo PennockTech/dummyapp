@@ -62,6 +62,16 @@ ARG GO_BUILD_TAGS
 # If you want dependencies fetched and built within Docker instead of in
 # the parent, then build with DEP_FETCH_IN_DOCKER=t.
 
+# We can't use an ARG to pass --chown=${BUILDER_USER} to ADD because ADD
+# doesn't interpolate there.  ADD always works as root, if not chowned,
+# so the files copied across will be root-owned, thus `dep status` can't
+# create other areas, etc, so we need instead to create critical Go areas
+# as the Go runtime user.
+
+# Should we use ${GO_PARENTDIR}go or just assume that before we change it,
+# WORKDIR is the homedir?
+RUN mkdir -pv ${GO_PARENTDIR}go/src/go.pennock.tech/dummyapp
+
 ADD . ${GO_PARENTDIR}go/src/go.pennock.tech/dummyapp
 WORKDIR ${GO_PARENTDIR}go/src/go.pennock.tech/dummyapp
 ENV DOCKER_BUILD=true

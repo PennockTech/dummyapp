@@ -157,3 +157,18 @@ even when given in array form.  From v0.1.0 onwards, we require that Heroku
 be told `heroku labs:enable runtime-empty-entrypoint` which isn't quite right,
 but does at least let us use an array to invoke a command where there is no
 `/bin/sh` inside the container.
+
+#### Build using pennocktech/ci image
+
+This needs too many knobs, we should look at what's needed to simplify it,
+but:
+
+```sh
+DOCKER_BUILDER_IMAGE=pennocktech/ci:purple \
+  EXTRACT_GO_VERSION_FROM_LABEL=com.pennock-tech.versions.go \
+  GO_PARENTDIR=/home/ci/ \
+  ./build/build.with-docker.sh
+```
+
+The `GO_PARENTDIR` stuff should probably be cleansed out.
+
