@@ -26,6 +26,17 @@ finalize() {
   ls -ld "$1"
 }
 
+# Retag is used to add extra tags, not replace the normal one.
+# Consider if we want to change this.
+retag() {
+  [ -n "${RETAG:-}" ] || return 0
+  local retagged
+  retagged="${1:?}:${RETAG:?}"
+  printf 'docker tag "%s" "%s"\ndocker push "%s"\n' \
+    "$FULL_DOCKER_TAG" "$retagged" \
+    "$retagged"
+}
+
 # For these files, we assume that the 'docker' command first in $PATH is
 # correct for the point where the scripts will be invoked and that the
 # pre-persist command-names doesn't carry across.  If something else is needed,
@@ -41,13 +52,7 @@ finalize "$persist_heroku"
 printf >"$persist_dockerhub" \
   '#!/bin/sh -eu\ndocker push "%s"\n' \
   "$FULL_DOCKER_TAG"
-if [ -n "${RETAG:-}" ]; then
-  retagged="${DOCKER_PROJECT}:${RETAG}"
-  printf >>"$persist_dockerhub" \
-    'docker tag "%s" "%s"\ndocker push "%s"\n' \
-    "$FULL_DOCKER_TAG" "$retagged" \
-    "$retagged"
-fi
+retag "$DOCKER_PROJECT" >>"$persist_dockerhub"
 
 finalize "$persist_dockerhub"
 
@@ -61,5 +66,6 @@ printf >"$persist_gcloud_registry" \
   '#!/bin/sh -eu\ndocker tag "%s" "%s"\ndocker push "%s"\n' \
   "$FULL_DOCKER_TAG" "$GCR_REGISTRY_DOCKER_TAG" \
   "$GCR_REGISTRY_DOCKER_TAG"
+retag "$GCR_REGISTRY_DOCKER_NAME" >>"$persist_gcloud_registry"
 
 finalize "$persist_gcloud_registry"
