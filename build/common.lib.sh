@@ -246,7 +246,7 @@ show_versions() {
   echo "# Show-versions: {{{"
   date
   uname -a
-  id -a
+  id
   pwd
   "$GIT_CMD" version
   "$GO_CMD" version
