@@ -5,13 +5,18 @@
 
 progname="$(basename -s .sh "$0")"
 progdir="$(dirname "$0")"
+readonly progname progdir
 # shellcheck source=build/common.lib.sh disable=SC2034
 . "${progdir}/common.lib.sh" "$@"
 
 : "${PERSIST_DIR:?need a persist directory}"
+readonly PERSIST_DIR
 
 persist_heroku="$PERSIST_DIR/heroku-deploy.sh"
 persist_dockerhub="$PERSIST_DIR/docker-hub-deploy.sh"
+persist_gcloud_login="$PERSIST_DIR/gcloud-login.sh"
+persist_gcloud_registry="$PERSIST_DIR/gcr-deploy.sh"
+readonly persist_heroku persist_heroku persist_gcloud_registry
 
 mkdir -pv -- "$PERSIST_DIR"
 
@@ -45,3 +50,16 @@ if [ -n "${RETAG:-}" ]; then
 fi
 
 finalize "$persist_dockerhub"
+
+printf >"$persist_gcloud_login" \
+  '#!/bin/sh -eu\ngcloud config set project "%s"\ngcloud auth configure-docker </dev/null\n' \
+  "$GCR_PROJECT"
+
+finalize "$persist_gcloud_login"
+
+printf >"$persist_gcloud_registry" \
+  '#!/bin/sh -eu\ndocker tag "%s" "%s"\ndocker push "%s"\n' \
+  "$FULL_DOCKER_TAG" "$GCR_REGISTRY_DOCKER_TAG" \
+  "$GCR_REGISTRY_DOCKER_TAG"
+
+finalize "$persist_gcloud_registry"

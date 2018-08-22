@@ -10,11 +10,11 @@ defaults: &defaults
   docker:
     - image: domainr/ci:swan
       environment:
-        DOCKER_BUILDER_IMAGE: "domainr/ci:swan"
+        DOCKER_BUILDER_IMAGE: "pennocktech/ci:pink"
         # Rather than hard-code DOCKER_BUILDER_GOLANG_VERSION we can extract
         # it automatically:
-        EXTRACT_GO_VERSION_FROM_LABEL: "com.domainr.versions.go"
-        GO_PARENTDIR: "/home/domainr/"
+        EXTRACT_GO_VERSION_FROM_LABEL: "com.pennock-tech.versions.go"
+        GO_PARENTDIR: "/home/ci/"
         #
         DOCKER_PROJECT: "pennocktech/dummyapp"
         BUILD_TAGS: "heroku zerolog"
@@ -58,6 +58,10 @@ references:
     docker:
       - image: docker:18.02.0-ce-git
 
+  gcloud_image: &gcloud_image
+    docker:
+      # :alpine and :slim are smaller, but omit the docker command
+      - image: google/cloud-sdk:latest
 
   # beware these are also embedded in run command-lines:
   image_persist_path: &image_persist_path
@@ -197,6 +201,31 @@ jobs:
           name: Push docker image to Docker Hub
           command: /tmp/persist/docker-hub-deploy.sh
 
+  # TODO: setup a project and have this running in GKE, instead of just available from GCR
+  push_gce_registry:
+    <<: *defaults
+    <<: *gcloud_image
+    steps:
+      - setup_remote_docker:
+          version: *remote_docker_version
+      - run:
+          name: gcloud status report for logs
+          command: gcloud info; gcloud auth list
+      - attach_workspace:
+          at: *persist_directory
+      - run:
+          name: GCR login
+          command: |
+            printf '%s\n' "${GCLOUD_AUTH_ENCODED}" | base64 --decode --ignore-garbage > "${HOME}/gcloud-service-key.json"
+            gcloud auth activate-service-account --key-file ${HOME}/gcloud-service-key.json
+            /tmp/persist/gcloud-login.sh
+      - run:
+          name: Load Docker image from persisted workspace
+          command: docker load -i /tmp/persist/docker-layers.tar
+      - run:
+          name: Push docker image to GCE
+          command: /tmp/persist/gcr-deploy.sh
+
 
 workflows:
   version: 2
@@ -220,5 +249,13 @@ workflows:
             branches:
               ignore:
                 - /.*nohub.*/
+      - push_gce_registry:
+          context: google-dummyapp
+          requires:
+            - build
+          filters:
+            branches:
+              ignore:
+                - /.*nogcloud.*/
 
 # vim: sw=2 :
