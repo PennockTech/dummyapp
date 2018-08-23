@@ -8,9 +8,13 @@ version: 2
 
 defaults: &defaults
   docker:
-    - image: domainr/ci:swan
+    # The image is the control image for Circle CI, the env
+    # DOCKER_BUILDER_IMAGE is the one we launch for invoking Go.
+    # Less variance leads to less to debug.
+    - image: &basic_image
+        pennocktech/ci:purple
       environment:
-        DOCKER_BUILDER_IMAGE: "pennocktech/ci:pink"
+        DOCKER_BUILDER_IMAGE: *basic_image
         # Rather than hard-code DOCKER_BUILDER_GOLANG_VERSION we can extract
         # it automatically:
         EXTRACT_GO_VERSION_FROM_LABEL: "com.pennock-tech.versions.go"
