@@ -40,6 +40,10 @@ unset param full key value
 : "${GO_PROJECT_PATH:=go.pennock.tech/dummyapp}"
 : "${BIN_NAME:=dummyapp}"
 
+: "${GCR_HOST:=us.gcr.io}"
+: "${GCR_PROJECT:=dummyapp-214121}"
+: "${GCR_IMAGE_NAME:=pt-dummy-app}"
+
 # Should we be defaulting to heroku here, or leave that only to CircleCI?
 # NB: we use `=` not `:=` deliberately, to let an empty string disable
 # our default of enabling heroku & zerolog.
@@ -151,6 +155,8 @@ else
 fi
 
 HEROKU_REGISTRY_DOCKER_TAG="registry.heroku.com/$HEROKU_APP/web"
+GCR_REGISTRY_DOCKER_NAME="${GCR_HOST}/${GCR_PROJECT}/${GCR_IMAGE_NAME}"
+GCR_REGISTRY_DOCKER_TAG="${GCR_REGISTRY_DOCKER_NAME}"  # default to implicit :latest
 
 # Derived Variables: }}}
 
@@ -240,7 +246,7 @@ show_versions() {
   echo "# Show-versions: {{{"
   date
   uname -a
-  id -a
+  id
   pwd
   "$GIT_CMD" version
   "$GO_CMD" version

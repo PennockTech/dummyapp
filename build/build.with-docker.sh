@@ -5,7 +5,7 @@
 # All rights reserved, except as granted under license.
 # Licensed per file LICENSE.txt
 
-progname="$(basename -s .sh "$0")"
+progname="$(basename "$0" .sh)"
 progdir="$(dirname "$0")"
 # shellcheck source=build/common.lib.sh disable=SC2034
 . "${progdir}/common.lib.sh" "$@"

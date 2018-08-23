@@ -8,7 +8,7 @@
 #
 
 set -eu
-progname="$(basename -s .sh "$0")"
+progname="$(basename "$0" .sh)"
 progdir="$(dirname "$0")"
 # We expect 'local' in sh, even though non-POSIX.
 # shellcheck source=build/common.lib.sh disable=SC2034
