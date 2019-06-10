@@ -1,7 +1,7 @@
 version: 2
 
 # Assumed environment variables from config:
-#   HEROKU_TOKEN:  an auth token for Heroku, needed to configure docker push
+#   HEROKU_API_KEY:  an auth token for Heroku, needed to configure docker push
 #   DOCKERHUB_USER:  Docker Hub user to push to Hub as
 #   DOCKERHUB_PASS:  A token or somesuch to authenticate to Docker Hub
 
@@ -177,7 +177,7 @@ jobs:
           version: *remote_docker_version
       - run:
           name: Docker Login to Heroku registry
-          command: docker login -u _ -p "${HEROKU_TOKEN}" registry.heroku.com
+          command: docker login -u _ -p "${HEROKU_API_KEY}" registry.heroku.com
       - attach_workspace:
           at: *persist_directory
       - run:

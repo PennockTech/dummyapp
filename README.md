@@ -89,6 +89,10 @@ As to the values:
 1. Heroku is bad enough in only having one auth token at a time, unscoped, so
    no ability to trace leaks or constrain actions of the token.
    Run `heroku auth:token` while signed in, that's the token to use.
+   1. This has changed; you can now use:
+      `heroku authorizations:create -d 'Circle CI token, created by Fred'`
+   2. You can adjust the expiration time and the oauth scopes, I've not yet
+      explored to figure out the minimum scope needed.
 2. Docker Hub ... defaults to storing your usercode and master password in
    `~/.docker/config.json`; you probably want to install
    `docker-credential-helper` if you haven't already done so.
