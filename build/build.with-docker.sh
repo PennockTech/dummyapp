@@ -17,6 +17,20 @@ if should_dep_fetch; then
   trace_cmd "$DEP_CMD" ensure -v
 fi
 
+if [ -d .git ]; then
+  # If missing ssh command in image, Circle CI falls back to its own system for
+  # git cloning, which can leave .pack files with permissions 0600, which
+  # breaks across the user-id boundary when invoking docker (even if same uid
+  # presented within each container, they'll be "different" after
+  # normalization).
+  # Fix 1: include ssh in all builder images.
+  # Fix 2: stomp on .git permissions; this will re-open permissions if someone
+  # is invoking this on their own system, but if the code is private, then the
+  # parent dir will be private too, so nothing can get in because Unix requires
+  # full transitive access.  This is why we _only_ chmod the .git area though.
+  chmod -R go+rX .git
+fi
+
 if [ -n "$BUILD_TAGS" ]; then
   mkdir -pv -- "$(dirname "$DOCKER_MUTABLE_GO_TAGS")"
   printf > "$DOCKER_MUTABLE_GO_TAGS" '%s\n' "$BUILD_TAGS"

@@ -8,9 +8,13 @@ version: 2
 
 defaults: &defaults
   docker:
-    - image: domainr/ci:swan
+    # The image is the control image for Circle CI, the env
+    # DOCKER_BUILDER_IMAGE is the one we launch for invoking Go.
+    # Less variance leads to less to debug.
+    - image: &basic_image
+        pennocktech/ci:purple
       environment:
-        DOCKER_BUILDER_IMAGE: "pennocktech/ci:pink"
+        DOCKER_BUILDER_IMAGE: *basic_image
         # Rather than hard-code DOCKER_BUILDER_GOLANG_VERSION we can extract
         # it automatically:
         EXTRACT_GO_VERSION_FROM_LABEL: "com.pennock-tech.versions.go"
@@ -84,7 +88,7 @@ jobs:
       # do cache these, although note that means restore-cache before checkout
       - run:
           name: Install dependencies
-          command: dep ensure -v
+          command: dep ensure -v -vendor-only
 
       # For languages where there are many slow build steps, or when installing
       # an OS package as part of the final image, a build-cache makes sense.
