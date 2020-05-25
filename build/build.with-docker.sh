@@ -12,10 +12,9 @@ progdir="$(dirname "$0")"
 
 prebuild_sanity_check
 
-if should_dep_fetch; then
-  ensure_have_dep
-  trace_cmd "$DEP_CMD" ensure -v
-fi
+# Download all content into the vendor area outside Docker, so that Docker is
+# not doing extra network fetches, and we can have a local cache for efficiency.
+go mod vendor -v
 
 if [ -d .git ]; then
   # If missing ssh command in image, Circle CI falls back to its own system for
@@ -66,14 +65,6 @@ for arg in $(docker_available_ARGs); do
     extra_args+=( --build-arg "${arg}=${!envvar}" )
   fi
 done
-
-# We had support for $GO_PARENTDIR being set from outside, but I think
-# with the shell setup, we might be moving away from needing that in future.
-# For now, the Dockerfile still expects this override, but we can make
-# it optional.
-if [ -n "${GO_PARENTDIR:-}" ]; then
-  extra_args+=( --build-arg "GO_PARENTDIR=$GO_PARENTDIR" )
-fi
 
 # The EXTRA_DOCKER_BUILD_ARGS is deliberately unquoted.
 # shellcheck disable=SC2086

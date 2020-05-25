@@ -1,5 +1,5 @@
 #!/bin/sh -eu
-# Copyright © 2018 Pennock Tech, LLC.
+# Copyright © 2018,2020 Pennock Tech, LLC.
 # All rights reserved, except as granted under license.
 # Licensed per file LICENSE.txt
 
@@ -16,7 +16,6 @@ ld_flags="$(go_ldflags_stampversion) -s"
 output_file="$(binary_handoff_path)"
 
 set -x
-cd "$CTXPROJDIR"
 export CGO_ENABLED=0 GOOS="${DOCKER_GOOS}"
 exec "$GO_CMD" build \
   -tags "$go_tags" \

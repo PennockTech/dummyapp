@@ -18,6 +18,10 @@ Circle CI, which creates a from-scratch Docker image (using a multi-stage
 Dockerfile) and deploys it to both Docker Hub and, for master branch,
 to Heroku.
 
+Well, it did, but I've shut down the Heroku app, so that bit of logic is
+commented out in the `.circleci/config.yml` file; I've left it intact as a
+reference.
+
 ## Terminology
 
 * *DinD*: Docker-in-Docker
@@ -163,8 +167,7 @@ non-destructive access to blob stores.
 ### Build Dependencies
 
 * We use a `pennocktech/ci` image for building in Circle; it's got Go and a
-  few other tools such as `dep`, so that installing dependencies is a one-time
-  affair.
+  few other tools.
   <a href="https://github.com/PennockTech/ci">GitHub</a>,
   <a href="https://hub.docker.com/r/pennocktech/ci/">Docker Hub</a>.
 * We merge in contents from a data image; at the size we're at, it's silly,
@@ -177,7 +180,7 @@ non-destructive access to blob stores.
   <a href="https://hub.docker.com/_/golang/">Docker Hub</a>.
   + But in Circle, we override this to be the same as the Controller Image.
 * The other dependencies are Golang libraries, which we pull in via Golang
-  dependency mechanisms: `dep`, else `go get`.
+  module handling.
 
 All are automated Docker Hub builds as public images from public GitHub repos.
 The `golang` image is from the `docker-library` GitHub organization, while the
@@ -218,10 +221,6 @@ but:
 ```sh
 DOCKER_BUILDER_IMAGE=pennocktech/ci:purple \
   EXTRACT_GO_VERSION_FROM_LABEL=com.pennock-tech.versions.go \
-  GO_PARENTDIR=/home/ci/ \
   ./build/build.with-docker.sh
 ```
-
-The `GO_PARENTDIR` stuff should probably be cleansed away.
-
 

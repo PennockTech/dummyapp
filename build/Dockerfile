@@ -1,4 +1,4 @@
-# Copyright © 2018 Pennock Tech, LLC.
+# Copyright © 2018,2020 Pennock Tech, LLC.
 # All rights reserved, except as granted under license.
 # Licensed per file LICENSE.txt
 
@@ -23,15 +23,13 @@
 # If you do so, please try to at least also pass BUILDER_GOLANG_VERSION
 # to be accurate, as this information is labelled into the final built
 # image.
-ARG BUILDER_GOLANG_VERSION=1.10
+ARG BUILDER_GOLANG_VERSION=1.14.3
 ARG BUILDER_VARIANT=""
 ARG BUILDER_IMAGE_BASE="golang"
 ARG BUILDER_IMAGE="${BUILDER_IMAGE_BASE}:${BUILDER_GOLANG_VERSION}${BUILDER_VARIANT}"
 
 # These are all documented inline below, where actually used
-ARG GO_PARENTDIR="/"
 ARG GO_BUILD_TAGS=""
-ARG NO_DEP_FETCH=""
 ARG POETRY_DIR=/poetry
 ARG POETRY_IMAGE="philpennock/poetry"
 ARG PORT="8080"
@@ -40,13 +38,6 @@ ARG RUNTIME_BASE_IMAGE="scratch"
 # ========================8< New Stage: Builder >8========================
 FROM ${BUILDER_IMAGE} AS builder
 
-# This is used when the build image has $GOPATH as somewhere other than /go
-# and should then be, for builds as user "ci" in ~ci/go: /home/ci/
-# (assuming normal modern Unix homedir conventions).
-ARG GO_PARENTDIR
-# This is used to prevent having dep inside Docker try to fetch dependencies
-# if it thinks things are out of date:
-ARG NO_DEP_FETCH
 # This is used to propagate Golang build tags from the outside, through Docker,
 # into the actual Go build used.  Note that the actual build, per normal, uses
 # BUILD_TAGS not GO_BUILD_TAGS, so we rename back.  It's only renamed to have
@@ -58,9 +49,6 @@ ARG GO_BUILD_TAGS
 #
 # We exclude the vendor area from the git repo, but expect it to have
 # been populated before Docker is called.
-#
-# If you want dependencies fetched and built within Docker instead of in
-# the parent, then build with DEP_FETCH_IN_DOCKER=t.
 
 # We can't use an ARG to pass --chown=${BUILDER_USER} to ADD because ADD
 # doesn't interpolate there.  ADD always works as root, if not chowned,
@@ -68,14 +56,12 @@ ARG GO_BUILD_TAGS
 # create other areas, etc, so we need instead to create critical Go areas
 # as the Go runtime user.
 
-# Should we use ${GO_PARENTDIR}go or just assume that before we change it,
-# WORKDIR is the homedir?
-RUN mkdir -pv ${GO_PARENTDIR}go/src/go.pennock.tech/dummyapp
+RUN mkdir -pv dummyapp
 
-ADD . ${GO_PARENTDIR}go/src/go.pennock.tech/dummyapp
-WORKDIR ${GO_PARENTDIR}go/src/go.pennock.tech/dummyapp
+ADD . dummyapp
+WORKDIR dummyapp
 ENV DOCKER_BUILD=true
-RUN build/build.from-within-dockerfile.sh env-GO_PARENTDIR="${GO_PARENTDIR}" env-NO_DEP_FETCH="${NO_DEP_FETCH}" env-BUILD_TAGS="${GO_BUILD_TAGS}"
+RUN build/build.from-within-dockerfile.sh env-BUILD_TAGS="${GO_BUILD_TAGS}"
 
 # =====================8< New Stage: Poetry Image >8======================
 # Work-around for being unable to specify an ARG as `COPY --from=` source.
@@ -86,7 +72,6 @@ RUN build/build.from-within-dockerfile.sh env-GO_PARENTDIR="${GO_PARENTDIR}" env
 # FROM which interpolates, interpolates ENV+ARG, not ARG-only.  Rather than
 # add more variance, just pull the image.
 
-ARG POETRY_IMAGE
 FROM ${POETRY_IMAGE} AS poetry
 
 # ======================8< New Stage: Final Image >8======================
@@ -95,7 +80,6 @@ ARG RUNTIME_BASE_IMAGE
 FROM ${RUNTIME_BASE_IMAGE}
 ARG RUNTIME_BASE_IMAGE
 ARG PORT
-ARG GO_PARENTDIR
 ARG POETRY_DIR
 
 # When adding the storage layers, add the rarest-changing one first, so that
@@ -115,7 +99,7 @@ COPY build/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 CMD ["/dummyapp", "-log.json"]
 
 # The program itself
-COPY --from=builder ${GO_PARENTDIR}dummyapp /
+COPY --from=builder /tmp/dummyapp /
 # And the data files
 COPY --from=poetry / ${POETRY_DIR}/
 
@@ -144,7 +128,6 @@ ARG POETRY_IMAGE
 ARG GO_BUILD_TAGS
 # These are only for the labels and not repeats:
 ARG APP_VERSION="<unknown>"
-ARG DEP_VERSION="<unknown>"
 #
 LABEL maintainer="noc+di@pennock-tech.com"
 LABEL tech.pennock.name="dummyapp"
@@ -153,7 +136,6 @@ LABEL tech.pennock.baseimage="${RUNTIME_BASE_IMAGE}"
 LABEL tech.pennock.portlist="${PORT}"
 LABEL tech.pennock.version="${APP_VERSION}"
 LABEL tech.pennock.versions.go="${BUILDER_GOLANG_VERSION}"
-LABEL tech.pennock.versions.dep="${DEP_VERSION}"
 LABEL tech.pennock.gobuildtags="${GO_BUILD_TAGS}"
 LABEL tech.pennock.data.poetryimage="${POETRY_IMAGE}"
 LABEL tech.pennock.volumes.poetry="${POETRY_DIR}"

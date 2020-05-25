@@ -18,7 +18,6 @@ defaults: &defaults
         # Rather than hard-code DOCKER_BUILDER_GOLANG_VERSION we can extract
         # it automatically:
         EXTRACT_GO_VERSION_FROM_LABEL: "com.pennock-tech.versions.go"
-        GO_PARENTDIR: "/home/ci/"
         #
         DOCKER_PROJECT: "pennocktech/dummyapp"
         BUILD_TAGS: "heroku zerolog"
@@ -88,7 +87,7 @@ jobs:
       # do cache these, although note that means restore-cache before checkout
       - run:
           name: Install dependencies
-          command: dep ensure -v -vendor-only
+          command: go mod download -x
 
       # For languages where there are many slow build steps, or when installing
       # an OS package as part of the final image, a build-cache makes sense.
@@ -237,14 +236,14 @@ workflows:
   build_and_deploy:
     jobs:
       - build
-      - deploy_heroku:
-          context: heroku-and-dockerhub
-          requires:
-            - build
-          filters:
-            branches:
-              only:
-                - master
+#     - deploy_heroku:
+#         context: heroku-and-dockerhub
+#         requires:
+#           - build
+#         filters:
+#           branches:
+#             only:
+#               - master
       - push_docker_hub:
           context: heroku-and-dockerhub
           requires:

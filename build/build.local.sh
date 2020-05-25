@@ -10,10 +10,7 @@ progdir="$(dirname "$0")"
 
 prebuild_sanity_check
 
-if should_dep_fetch; then
-  ensure_have_dep
-  trace_cmd "$DEP_CMD" ensure -v
-fi
+go mod download
 
 show_versions
 

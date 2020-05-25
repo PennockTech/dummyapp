@@ -1,7 +1,7 @@
 #!/bin/echo you should source me
 # Note that shellcheck complains about that idiom; shellcheck is unaware.
 
-# Copyright © 2018 Pennock Tech, LLC.
+# Copyright © 2018,2020 Pennock Tech, LLC.
 # All rights reserved, except as granted under license.
 # Licensed per file LICENSE.txt
 
@@ -61,7 +61,6 @@ unset param full key value
 # version of Go.
 : "${GIT_CMD:=git}"
 : "${GO_CMD:=go}"
-: "${DEP_CMD:=dep}"
 : "${DOCKER_CMD:=docker}"
 
 # Diagnostic functions: {{{
@@ -119,11 +118,7 @@ trace_cmd() {
 # Most other things use $HOME/go with sane permissions.
 # We default to the golang images but want to be easy to use with anything
 # else.
-firstGopath="${GOPATH%%:*}"
 : "${HOME:=/home/$(id -un)}"
-: : "${firstGopath:=${HOME}/go}"
-
-CTXPROJDIR="${firstGopath}/src/${GO_PROJECT_PATH}"
 
 REPO_DIR="$("$GIT_CMD" rev-parse --show-toplevel)"
 BUILD_DIR="$("$GIT_CMD" -C "$progdir" rev-parse --show-prefix)"
@@ -156,37 +151,9 @@ fi
 
 HEROKU_REGISTRY_DOCKER_TAG="registry.heroku.com/$HEROKU_APP/web"
 GCR_REGISTRY_DOCKER_NAME="${GCR_HOST}/${GCR_PROJECT}/${GCR_IMAGE_NAME}"
-GCR_REGISTRY_DOCKER_TAG="${GCR_REGISTRY_DOCKER_NAME}"  # default to implicit :latest
+GCR_REGISTRY_DOCKER_TAG="${GCR_REGISTRY_DOCKER_NAME}" # default to implicit :latest
 
 # Derived Variables: }}}
-
-should_dep_fetch() { [ -z "${NO_DEP:-}" ] && [ -z "${NO_DEP_FETCH:-}" ]; }
-# The Make NO_DEP_BUILD was to make build not rely upon the vendored packages,
-# which was because I had the binary declared as depending upon the vendored
-# paths, which is the right way to do things for Make.
-# We don't need it.
-
-#SIDE-EFFECT: sets $FOUND_CMD global (to empty, if not found)
-# shellcheck disable=SC2034
-have_cmd() {
-  local cmd="$1"
-  shift
-  FOUND_CMD=''
-  local oIFS="$IFS"
-  IFS=':'
-  # Yes we are deliberately doing this to split on whitespace, shellcheck
-  # shellcheck disable=SC2086
-  set $PATH
-  IFS="$oIFS"
-  local x
-  for x; do
-    if [ -x "$x/$cmd" ]; then
-      FOUND_CMD="$x/$cmd"
-      return 0
-    fi
-  done
-  return 1
-}
 
 docker_builder_golang_version() {
   local image="${1:?missing docker builder image}"
@@ -216,30 +183,13 @@ go_ldflags_stampversion() {
     "$GO_PROJECT_PATH" "$REPO_VERSION" "$GO_PROJECT_PATH" "$BUILD_TIMESTAMP"
 }
 
-# find_go_packages is a list of all the non-stdlib packages we depend upon
-find_go_packages() {
-  "$GO_CMD" list -f '{{join .Imports "\n"}}' ./... |
-    sort -u |
-    grep -E '^[^/]+\..+/' |
-    sed "s:^${GO_PROJECT_PATH}/vendor/::" |
-    grep -v "^${GO_PROJECT_PATH}"
-
-}
-
-# The path we place the image in for handoff between docker stages is the
-# parent directory of the first directory in $GOPATH.
-# For 'docker:N.NN' releases, that means "/$BIN_NAME",
-# else probably "$HOME/$BIN_NAME".
+# The path we place the image in for handoff between docker stages is /tmp/
 binary_handoff_path() {
-  printf '%s/%s' "$(dirname "$firstGopath")" "$BIN_NAME"
+  printf '%s/%s' /tmp "$BIN_NAME"
 }
 
 # Call this in CI builds before starting the build, so that we have a report
 # of all versions of interest.
-# The `dep status` _should_ report everything, but in case it doesn't, we want
-# a _thorough_ report, so the `for DIR` line will catch all git repos which we
-# depend upon; anything managed by `dep` in `vendor` will be missing a `.git`
-# dir and collapse back to the top repo.  Non-git not handled.
 show_versions() {
   local real_version DIR
 
@@ -255,26 +205,7 @@ show_versions() {
   if [ "$real_version" != "$REPO_VERSION" ]; then
     warn "MISMATCH: told via env to build with version: $REPO_VERSION"
   fi
-  if have_cmd "$DEP_CMD"; then
-    "$DEP_CMD" version
-    echo
-    "$DEP_CMD" status
-  else
-    if [ "$DEP_CMD" != "dep" ]; then
-      warn "missing '$DEP_CMD' (env replacement of 'dep') command"
-    else
-      warn "missing '$DEP_CMD' command"
-    fi
-  fi
-  echo
-  for DIR in $("$GO_CMD" list -f '{{range .Deps}}{{.}}{{"\n"}}{{end}}' |
-    grep -E '^[^/.]+\..*/' |
-    xargs "$GO_CMD" list -f '{{.Dir}}' |
-    xargs -I {} "$GIT_CMD" -C {} rev-parse --show-toplevel |
-    sort -u); do
-    printf '%s\t' "$DIR"
-    "$GIT_CMD" -C "$DIR" describe --always --dirty --tags
-  done
+  go list -mod=readonly -m all
   echo "# Show-versions: }}}"
   echo
 }
@@ -283,50 +214,6 @@ show_versions() {
 # tags
 prebuild_sanity_check() {
   printf "%s" "$DOCKER_TAG" | grep -qE '^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'
-}
-
-ensure_have_dep() {
-  if "$DEP_CMD" version >/dev/null; then return 0; fi
-  if [ "$DEP_CMD" != "dep" ]; then
-    die "won't auto-install 'dep' when told to use '$DEP_CMD' as dep"
-  fi
-  if [ "$LOCAL_OS" = "Darwin" ] && [ -d /usr/local/Homebrew ]; then
-    brew install dep
-    dep version >/dev/null || die "asked brew to install dep, it returned ok, but 'dep' still not in \$PATH"
-    return 0
-  fi
-
-  # We want the binary stamped with the git information, so that when we ask it
-  # a version we get something sane.
-  "$GO_CMD" get -u -d github.com/golang/dep/cmd/dep
-  local go_hostos go_hostarch
-  go_hostos="$("$GO_CMD" env GOHOSTOS)"
-  go_hostarch="$("$GO_CMD" env GOHOSTARCH)"
-  (
-    export DEP_BUILD_PLATFORMS="$go_hostos" DEP_BUILD_ARCHS="$go_hostarch"
-    cd "$firstGopath/src/github.com/golang/dep" &&
-      ./hack/build-all.bash &&
-      install "release/dep-${go_hostos}-${go_hostarch}" "$firstGopath/bin/dep"
-  )
-  [ -x "$firstGopath/bin/dep" ] || die "installation of dep failed"
-  if dep version >/dev/null; then
-    return 0
-  fi
-  DEP_CMD="$firstGopath/bin/dep"
-  if "$DEP_CMD" version >/dev/null; then
-    return 0
-  fi
-  die "something is badly wrong, can't run the dep command we just created"
-}
-
-have_all_deps() {
-  local pkgs p
-  pkgs="$(find_go_packages)"
-  # shellcheck disable=SC2086
-  for p in $pkgs; do
-    [ -d "vendor/$p" ] || return 1
-  done
-  return 0
 }
 
 cd "$REPO_DIR"
