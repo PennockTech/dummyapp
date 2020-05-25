@@ -1,70 +1,63 @@
-version: 2
+version: 2.1
 
 # Assumed environment variables from config:
 #   HEROKU_API_KEY:  an auth token for Heroku, needed to configure docker push
 #   DOCKERHUB_USER:  Docker Hub user to push to Hub as
 #   DOCKERHUB_PASS:  A token or somesuch to authenticate to Docker Hub
 
-
-defaults: &defaults
-  docker:
-    # The image is the control image for Circle CI, the env
-    # DOCKER_BUILDER_IMAGE is the one we launch for invoking Go.
-    # Less variance leads to less to debug.
-    - image: &basic_image
-        pennocktech/ci:purple
-      environment:
-        DOCKER_BUILDER_IMAGE: *basic_image
-        # Rather than hard-code DOCKER_BUILDER_GOLANG_VERSION we can extract
-        # it automatically:
-        EXTRACT_GO_VERSION_FROM_LABEL: "com.pennock-tech.versions.go"
-        #
-        DOCKER_PROJECT: "pennocktech/dummyapp"
-        BUILD_TAGS: "heroku zerolog"
-        BUILDER_SYSTEM: "circleci"
-
-# <https://circleci.com/blog/how-to-build-a-docker-image-on-circleci-2-0/>
-#  -- the loose gameplan, reworked a fair bit, especially since we have
-#     multi-stage to deal with, so the caching would have been wrong for us
+# Somewhere around when config 2.1 was introduced, Circle CI appear to have
+# broken YAML reference based map merging, switching from "last definition
+# wins" to "first definition wins", which broke which Docker image was used for
+# the Google GCE push.  It also broke the docker hub image but since the
+# command was in the build image, that's less noticeable.
 #
-# <https://circleci.com/docs/2.0/building-docker-images/>
-#  -- the default image is currently 17.03.0-ce but multi-stage builds require
-#     at least 17.05, so we override; we only _need_ to override for the build
-#     stage, but I don't want to debug brokenness when multiple versions of
-#     Docker are used at different stages, so we use a consistent image.
-#
-#     And remember that there's a distinct shortage of Variable Interpolation
-#     which we can use.  There are 'references', which are YAML.
-#     It seems one way to organize this, used by circle themselves, is to declare
-#     a dummy top-level key "references", to hold variables, where the second-level
-#     key doesn't matter, but the &name is what's used.  See the common `&defaults`
-#     model, which we were already using, but extended a bit more.
+# So rather than fight something that's under-tested by Circle (although YAML
+# spec clearly says later keys win), I've chosen to switch to version 2.1, so
+# that this config serves as a continuing "how to set this up for a new
+# project" reference, rather than a historical snapshot.  It's probably not as
+# good any more, because of other dated assumptions which surely exist.
 
-references:
-  remote_docker_version: &remote_docker_version
-    17.11.0-ce
+executors:
+  main-builder:
+    docker:
+      # If changing this from a PT image, then in the environment below, drop
+      # EXTRACT_GO_VERSION_FROM_LABEL and instead export
+      # DOCKER_BUILDER_GOLANG_VERSION.
+      - image: &basic_image pennocktech/ci:purple
 
-  project_working_dir: &project_working_dir
-    ~/go/src/go.pennock.tech/dummyapp
+    environment:
+      DOCKER_BUILDER_IMAGE: *basic_image
+      # Rather than hard-code DOCKER_BUILDER_GOLANG_VERSION we can extract
+      # it automatically, assuming that the image is ours.
+      EXTRACT_GO_VERSION_FROM_LABEL: "com.pennock-tech.versions.go"
+      #
+      DOCKER_PROJECT: "pennocktech/dummyapp"
+      BUILD_TAGS: "heroku zerolog"
+      BUILDER_SYSTEM: "circleci"
 
   # We don't need our unusual Docker image pulled for the deploy steps, it will
   # rarely already be on the machine, since the deploy is unlikely to happen on
   # the same host as the build.
   #
   # We pretty much need: a shell, the docker command, whatever the
-  # setup_remote_docker tag requires.  Grab a current Docker, since the
-  # highest version documented by Circle CI for remote Docker (17.11) is
-  # too old to be listed in the Supported tags for docker images.
-  # So we'll have 18.02 client talking to 17.11 server within CI, and
-  # whatever the external repositories are.
-  deployer_image: &deployer_image
+  # setup_remote_docker tag requires.  Grab a Docker matching as closely as
+  # possible the most recent stable Docker image we can find in the list of
+  # supported Docker versions at
+  # <https://circleci.com/docs/2.0/building-docker-images/>.
+  deploy-to-docker:
     docker:
-      - image: docker:18.02.0-ce-git
-
-  gcloud_image: &gcloud_image
+      - image: docker:18.06.0-ce-git
+  deploy-to-gcloud:
     docker:
       # :alpine and :slim are smaller, but omit the docker command
       - image: google/cloud-sdk:latest
+
+references:
+  remote_docker_version: &remote_docker_version
+    18.06.0-ce
+
+  project_working_dir: &project_working_dir
+    ~/dummyapp
 
   # beware these are also embedded in run command-lines:
   image_persist_path: &image_persist_path
@@ -73,10 +66,9 @@ references:
     /tmp/persist
 
 
-
 jobs:
   build:
-    <<: *defaults
+    executor: main-builder
     working_directory: *project_working_dir
     steps:
       - checkout
@@ -84,7 +76,10 @@ jobs:
           version: *remote_docker_version
 
       # FIXME: have a git repo to hold the vendored dependencies, or perhaps
-      # do cache these, although note that means restore-cache before checkout
+      # do cache these, although note that means restore-cache before checkout.
+      # Except that now that we're using Go modules, that restore would be to a
+      # different location in the filesystem and so is a much more viable
+      # proposition.
       - run:
           name: Install dependencies
           command: go mod download -x
@@ -169,8 +164,7 @@ jobs:
   # single source of truth for that.
 
   deploy_heroku:
-    <<: *defaults
-    <<: *deployer_image
+    executor: deploy-to-docker
     steps:
       - setup_remote_docker:
           version: *remote_docker_version
@@ -187,8 +181,7 @@ jobs:
           command: /tmp/persist/heroku-deploy.sh
 
   push_docker_hub:
-    <<: *defaults
-    <<: *deployer_image
+    executor: deploy-to-docker
     steps:
       - setup_remote_docker:
           version: *remote_docker_version
@@ -206,8 +199,7 @@ jobs:
 
   # TODO: setup a project and have this running in GKE, instead of just available from GCR
   push_gce_registry:
-    <<: *defaults
-    <<: *gcloud_image
+    executor: deploy-to-gcloud
     steps:
       - setup_remote_docker:
           version: *remote_docker_version
