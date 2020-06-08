@@ -171,7 +171,7 @@ non-destructive access to blob stores.
   <a href="https://github.com/PennockTech/ci">GitHub</a>,
   <a href="https://hub.docker.com/r/pennocktech/ci/">Docker Hub</a>.
 * We merge in contents from a data image; at the size we're at, it's silly,
-  but that's necessarily true for larger data sets.  I'm using
+  but that's not necessarily true for larger data sets.  I'm using
   `philpennock/poetry` which is just a couple of Rudyard Kipling poems.  
   <a href="https://github.com/philpennock/poetry">GitHub</a>,
   <a href="https://hub.docker.com/r/philpennock/poetry/">Docker Hub</a>.
