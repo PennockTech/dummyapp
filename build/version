@@ -3,6 +3,8 @@
 branch="$("$GIT_CMD" symbolic-ref --short HEAD 2>/dev/null)"
 if [ ".$branch" = ".master" ]; then
   branch=""
+elif [ ".$branch" = ".main" ]; then
+  branch=""
 elif [ ".$branch" = "." ]; then
   branch=",detached"
 else

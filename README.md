@@ -15,7 +15,7 @@ propagation for build framework).
 
 This Git repo is setup so that pushes automatically trigger builds within
 Circle CI, which creates a from-scratch Docker image (using a multi-stage
-Dockerfile) and deploys it to both Docker Hub and, for master branch,
+Dockerfile) and deploys it to both Docker Hub and, for main branch,
 to Heroku.
 
 Well, it did, but I've shut down the Heroku app, so that bit of logic is
@@ -73,7 +73,7 @@ a data-only Docker image, which we now depend upon at build time.  There's
 one `COPY --from` line in our `Dockerfile` to edit to remove that.
 
 Created Circle CI project; pushed on branch circle, aborted first build on
-master.
+`master` (as the `main` branch was then called).
 
 NB: the `runtime-empty-entrypoint` lab came into existence after I first
 created this project, but is what lets us skip setting the `ENTRYPOINT` in the

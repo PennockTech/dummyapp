@@ -235,7 +235,7 @@ workflows:
 #         filters:
 #           branches:
 #             only:
-#               - master
+#               - main
       - push_docker_hub:
           context: heroku-and-dockerhub
           requires:
