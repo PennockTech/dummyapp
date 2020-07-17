@@ -23,7 +23,7 @@
 # If you do so, please try to at least also pass BUILDER_GOLANG_VERSION
 # to be accurate, as this information is labelled into the final built
 # image.
-ARG BUILDER_GOLANG_VERSION=1.14.3
+ARG BUILDER_GOLANG_VERSION=1.14.6
 ARG BUILDER_VARIANT=""
 ARG BUILDER_IMAGE_BASE="golang"
 ARG BUILDER_IMAGE="${BUILDER_IMAGE_BASE}:${BUILDER_GOLANG_VERSION}${BUILDER_VARIANT}"
