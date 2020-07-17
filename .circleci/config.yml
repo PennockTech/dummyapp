@@ -20,17 +20,18 @@ version: 2.1
 executors:
   main-builder:
     docker:
+      # Because the upstream images (at this time) lack labels, we can't extract
+      # the Golang version from them.  If that changes, or we return to the
+      # overly bloated CI heavy builder images, then consider switching back from
       # If changing this from a PT image, then in the environment below, drop
-      # EXTRACT_GO_VERSION_FROM_LABEL and instead export
-      # DOCKER_BUILDER_GOLANG_VERSION.
-      - image: &basic_image pennocktech/ci:purple
+      # DOCKER_BUILDER_GOLANG_VERSION to EXTRACT_GO_VERSION_FROM_LABEL below.
+      - image: &basic_image pennocktech/ci:gobuild-1.14.6
 
     environment:
       DOCKER_BUILDER_IMAGE: *basic_image
       # Rather than hard-code DOCKER_BUILDER_GOLANG_VERSION we can extract
-      # it automatically, assuming that the image is ours.
+      # it automatically, if the version is in a label:
       EXTRACT_GO_VERSION_FROM_LABEL: "com.pennock-tech.versions.go"
-      #
       DOCKER_PROJECT: "pennocktech/dummyapp"
       BUILD_TAGS: "heroku zerolog"
       BUILDER_SYSTEM: "circleci"
