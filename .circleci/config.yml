@@ -47,7 +47,7 @@ executors:
   # <https://circleci.com/docs/2.0/building-docker-images/>.
   deploy-to-docker:
     docker:
-      - image: docker:18.06.0-ce-git
+      - image: docker:19.03.12-git
   deploy-to-gcloud:
     docker:
       # :alpine and :slim are smaller, but omit the docker command
@@ -55,7 +55,7 @@ executors:
 
 references:
   remote_docker_version: &remote_docker_version
-    18.06.0-ce
+    19.03.12
 
   project_working_dir: &project_working_dir
     ~/dummyapp
