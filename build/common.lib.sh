@@ -179,8 +179,11 @@ docker_available_ARGs() {
 }
 
 go_ldflags_stampversion() {
-  printf -- '-X "%s/internal/version.versionString=%s" -X "%s/internal/version.BuildTime=%s"' \
-    "$GO_PROJECT_PATH" "$REPO_VERSION" "$GO_PROJECT_PATH" "$BUILD_TIMESTAMP"
+  local vp
+  # Use a form which adapts to Go Modules:
+  vp="$(go list ./internal/version)"
+  printf -- '-X "%s.versionString=%s" -X "%s.BuildTime=%s"' \
+    "$vp" "$REPO_VERSION" "$vp" "$BUILD_TIMESTAMP"
 }
 
 # The path we place the image in for handoff between docker stages is /tmp/
