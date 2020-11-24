@@ -4,6 +4,12 @@ dummyapp
 This is a simple app for working out the flows for automated Docker image
 creation and deployment from within CI.
 
+**THIS IS CURRENTLY DISABLED: I shut down my Docker Hub bot-integration rather
+than pay a minimum of $300/yr for demoing a few open source projects, just to
+get team management.  The `.circleci/config.yml` has been deleted.
+I vaguely intend to recreate this using an alternative image registry, which
+is why this git repository has not been deleted.  -- 2020-11-24**
+
 No warranty.  You get to keep all the pieces and shards if it breaks.
 There's a 2-clause BSD license as a formality.
 
