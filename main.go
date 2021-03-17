@@ -149,11 +149,6 @@ func rootHandle(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	type page struct {
-		name string
-		hf   http.HandlerFunc
-	}
-
 	pageNames := make([]string, 0, len(firstLevelPages))
 	for k := range firstLevelPages {
 		if firstLevelPages[k].skipIndex {
@@ -309,7 +304,7 @@ func main() {
 	// Won't handle panic not guarded by sleep
 	start := time.Now()
 	rv := realMain()
-	duration := time.Now().Sub(start)
+	duration := time.Since(start)
 	if duration < 3*time.Second {
 		time.Sleep(2 * time.Second)
 	}
