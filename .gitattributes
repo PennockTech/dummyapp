@@ -1,0 +1,9 @@
+# The Go tooling has standardized upon NL termination always, and `go fmt` will rewrite away CRLF to LF.
+# As such, it's dangerous to have Go-managed code be CRLF-converted on output.
+# It's better for Windows users to preclude their use of Notepad, as they'll have less pain later.
+#
+# This conclusion brought to you by working with a Java ecosystem Windows using colleague, experiencing difficulties when trying to deal with Go.
+
+*.go		text eol=nl
+go.mod		text eol=nl
+go.sum		text eol=nl
