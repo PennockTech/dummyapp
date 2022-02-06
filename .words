@@ -1,0 +1,35 @@
+20
+
+## Human names
+Pennock
+
+## Tech abuse of English
+dir/S
+funcs
+libs
+respawn/GS
+sep
+unexport/DS
+
+## Er, I think I was being poetic in poetry.go
+structions
+
+## Common terms in Go development
+filesystem/S
+golint
+middleware/S
+stdlib
+waitgroup/S
+webserver/S
+
+## Filetypes, etc
+html
+txt
+
+## Other tools and packages
+dep
+zerolog
+
+## Units and abuse of numbers
+ns
+µs
