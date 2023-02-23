@@ -1,15 +1,16 @@
 module go.pennock.tech/dummyapp
 
-go 1.14
+go 1.19
 
 require (
-	github.com/felixge/httpsnoop v1.0.0
-	github.com/onsi/ginkgo v1.12.2 // indirect
-	github.com/pkg/errors v0.8.0 // indirect
-	github.com/rs/zerolog v1.5.0
-	github.com/sirupsen/logrus v1.0.5
-	github.com/stretchr/testify v1.5.1 // indirect
-	go.pennock.tech/hmetrics v0.1.2
-	gopkg.in/airbrake/gobrake.v2 v2.0.9 // indirect
-	gopkg.in/gemnasium/logrus-airbrake-hook.v2 v2.1.2 // indirect
+	github.com/felixge/httpsnoop v1.0.3
+	github.com/rs/zerolog v1.29.0
+	github.com/sirupsen/logrus v1.9.0
+	go.pennock.tech/hmetrics v1.0.1
+)
+
+require (
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.17 // indirect
+	golang.org/x/sys v0.5.0 // indirect
 )
