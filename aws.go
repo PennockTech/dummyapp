@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"sync"
@@ -124,7 +123,7 @@ func awsCollect(ctx context.Context, path string) *awsGatherItem {
 		return r
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		r.err = err
 		return r
@@ -167,7 +166,7 @@ func awsHandle(w http.ResponseWriter, req *http.Request) {
 
 	if p := os.Getenv("ECS_CONTAINER_METADATA_FILE"); p != "" {
 		io.WriteString(w, "<h2>ECS metadata from file</h2>\n")
-		contents, err := ioutil.ReadFile(p)
+		contents, err := os.ReadFile(p)
 		if err != nil {
 			renderErrorToHTML(w, p, err)
 		} else {

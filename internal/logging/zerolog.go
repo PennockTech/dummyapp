@@ -2,6 +2,7 @@
 // All rights reserved, except as granted under license.
 // Licensed per file LICENSE.txt
 
+//go:build zerolog && !logrus
 // +build zerolog,!logrus
 
 package logging
