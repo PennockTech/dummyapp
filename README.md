@@ -126,6 +126,8 @@ multiple Circle CI orgs (each with their own billing?).
 
 #### Google Container Registry
 
+**Note: Google have replaced _Container Registry_ with _Artifact Registry_**
+
 Here we can take advantage of a decent permissions model and get a token which
 can update just the one image repository.
 
