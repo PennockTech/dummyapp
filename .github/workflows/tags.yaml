@@ -47,7 +47,7 @@ jobs:
             exit 1
           }
           set -x
-          tag_type="$(git cat-file -t -- "$NEW_TAG")"
+          tag_type="$(git cat-file -t -- "$FULL_TAG")"
           case "$tag_type" in
             commit)
               # Lightweight tag
@@ -55,6 +55,7 @@ jobs:
                 wip/* | wip-* | wip_* ) true ;;
                 exp/* | exp-* | exp/* ) true ;;
                 *)
+                  git cat-file -p -- "$FULL_TAG"
                   nuke "::error title=Disallowed lightweight tag::tag ${NEW_TAG@Q} is lightweight and prohibited"
                   ;;
               esac
@@ -83,3 +84,4 @@ jobs:
           esac
         env:
           NEW_TAG: ${{ github.ref_name }}
+          FULL_TAG: ${{ github.ref }}
