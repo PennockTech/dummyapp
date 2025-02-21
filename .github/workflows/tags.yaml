@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
+      contents: write
       checks: write
       statuses: write
 
@@ -40,6 +40,12 @@ jobs:
         run: |2
           shopt -s extglob
           tag_type="$(git cat-file -t -- "$NEW_TAG")"
+          nuke() {
+            echo "$1"
+            git tag -d "$NEW_TAG"
+            git push origin ":$NEW_TAG"
+            exit 1
+          }
           case "$tag_type" in
             commit)
               # Lightweight tag
@@ -47,8 +53,7 @@ jobs:
                 wip/* | wip-* | wip_* ) true ;;
                 exp/* | exp-* | exp/* ) true ;;
                 *)
-                  echo "::error title=Disallowed lightweight tag::tag ${NEW_TAG@Q} is lightweight and prohibited"
-                  exit 1
+                  nuke "::error title=Disallowed lightweight tag::tag ${NEW_TAG@Q} is lightweight and prohibited"
                   ;;
               esac
               ;;
@@ -57,25 +62,21 @@ jobs:
               signature="$(git tag -l --format='%(contents:signature)' -- "$NEW_TAG")"
               case "$NEW_TAG" in
                 +([0-9.]) )
-                  echo "::error title=Tag version without v prefix::tag ${NEW_TAG@Q} looks like a version number but is missing a leading v"
-                  exit 1
+                  nuke "::error title=Tag version without v prefix::tag ${NEW_TAG@Q} looks like a version number but is missing a leading v"
                   ;;
                 v+([0-9.]) )
                   if [[ -z "${signature:-}" ]]; then
-                    echo "::error title=Version tag is unsigned::tag ${NEW_TAG@Q} is a version tag but is unsigned"
-                    exit 1
+                    nuke "::error title=Version tag is unsigned::tag ${NEW_TAG@Q} is a version tag but is unsigned"
                   fi
                   if ! git tag -v -- "$NEW_TAG"; then
-                    echo "::error title=Version tag bad signature::tag ${NEW_TAG@Q} is signed but not by a signer allowed by us"
-                    exit 1
+                    nuke "::error title=Version tag bad signature::tag ${NEW_TAG@Q} is signed but not by a signer allowed by us"
                   fi
                   ;;
               esac
               ;;
 
             *)
-              echo "::error title=Unrecognised tag type::tag ${NEW_TAG@Q} has unrecognised type ${tag_type@Q}"
-              exit 1
+              nuke "::error title=Unrecognised tag type::tag ${NEW_TAG@Q} has unrecognised type ${tag_type@Q}"
               ;;
           esac
         env:
