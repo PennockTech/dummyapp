@@ -30,7 +30,7 @@ jobs:
         shell: bash
         run: |2
           for ghUser in $GitHubSigningUsers; do
-            curl -fSsL "https://github.com/$ghUser.asc" | gpg --import || true
+            curl -fSsL "https://github.com/$ghUser.gpg" | gpg --import || true
           done
         env:
           GitHubSigningUsers: "philpennock"
@@ -40,13 +40,14 @@ jobs:
         shell: bash
         run: |2
           shopt -s extglob
-          tag_type="$(git cat-file -t -- "$NEW_TAG")"
           nuke() {
             echo "$1"
             git tag -d "$NEW_TAG"
             git push origin ":$NEW_TAG"
             exit 1
           }
+          set -x
+          tag_type="$(git cat-file -t -- "$NEW_TAG")"
           case "$tag_type" in
             commit)
               # Lightweight tag
