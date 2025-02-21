@@ -1,4 +1,12 @@
 name: Tag Checker
+# Validate that tags meet our policy constrains, delete them if not.
+# We reject lightweight tags unless named 'wip/*' or 'exp/*' (or equivalents).
+# We require that version tags have a 'v' prefix.
+# We require that version tags be signed.
+#   -- NB: currently only supports OpenPGP (gpg) signatures, does not support ssh signatures.
+
+# This workflow file makes use of debug statements.
+# You can see those outputs by creating a secret ACTIONS_STEP_DEBUG=true
 
 permissions: {}
 
@@ -32,6 +40,7 @@ jobs:
         shell: bash
         run: |2
           for ghUser in $GitHubSigningUsers; do
+            echo "::debug::importing from GitHub any OpenPGP keys for user ${ghUser@Q}"
             curl -fSsL "https://github.com/$ghUser.gpg" | gpg --import || true
           done
         env:
