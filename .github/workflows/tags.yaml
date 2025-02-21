@@ -8,7 +8,7 @@ on:
       - '**'
 
 jobs:
-  test:
+  tag-check:
     runs-on: ubuntu-latest
 
     permissions:
@@ -22,7 +22,8 @@ jobs:
         name: Checkout
         uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          # We want to be able to push tag deletions if we reject it
+          persist-credentials: true
 
       - id: key-imports
         name: Import keys
