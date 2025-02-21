@@ -41,15 +41,15 @@ jobs:
         name: Tag Check
         shell: bash
         run: |2
-          shopt -s extglob
+          shopt -s extglob  # case-matching for number patterns
           nuke() {
             echo "$1"
             git tag -d "$NEW_TAG"
             git push origin ":$NEW_TAG"
             exit 1
           }
-          set -x
           tag_type="$(git cat-file -t -- "$FULL_TAG")"
+          echo "::debug title=Tag details::Tag ${NEW_TAG@Q} has type $tag_type"
           case "$tag_type" in
             commit)
               # Lightweight tag
@@ -73,9 +73,11 @@ jobs:
                   if [[ -z "${signature:-}" ]]; then
                     nuke "::error title=Version tag is unsigned::tag ${NEW_TAG@Q} is a version tag but is unsigned"
                   fi
+                  echo "::debug title=tag-has-signature::tag ${NEW_TAG@Q} signature non-empty, yet to validate it"
                   if ! git tag -v -- "$NEW_TAG"; then
                     nuke "::error title=Version tag bad signature::tag ${NEW_TAG@Q} is signed but not by a signer allowed by us"
                   fi
+                  echo "::notice title=Release Tag Confirmed::tag ${NEW_TAG@Q} is a version release tag, not-lightweight, signed, by known signer"
                   ;;
               esac
               ;;
