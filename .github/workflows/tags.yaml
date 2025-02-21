@@ -24,6 +24,8 @@ jobs:
         with:
           # We want to be able to push tag deletions if we reject it
           persist-credentials: true
+          # By default, full tags get replaced by lightweight tags, unless we use ref: here to point to the explicit ref we are testing.
+          ref: ${{ github.ref }}
 
       - id: key-imports
         name: Import keys
