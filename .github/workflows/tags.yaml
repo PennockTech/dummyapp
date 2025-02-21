@@ -34,12 +34,15 @@ jobs:
           persist-credentials: true
           # By default, full tags get replaced by lightweight tags, unless we use ref: here to point to the explicit ref we are testing.
           ref: ${{ github.ref }}
+          # But we want to be able to use the current .release-signers from the trunk branch
+          fetch-depth: 0
 
       - id: key-imports
         name: Import keys
         shell: bash
         run: |2
-          allowed_signers_file=.release-signers
+          readonly allowed_signers_file=.release-signers
+          git remote set-head -a origin
           declare -a GitHubSigningUsers=()
           while read -r line; do
             case "${line:-#}" in
